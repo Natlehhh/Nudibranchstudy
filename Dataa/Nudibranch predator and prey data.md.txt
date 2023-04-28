@@ -1,0 +1,29 @@
+
+
+
+Name of individual performing metadata analysis: Natalie Roberts, HDR student Macquarie University
+Original Dataset Authors: López-Acosta et al., 2023, from 'Nudibranch predation boosts sponge silicon cycling'
+institution/address/email information for Principal investigator: Natalie.roberts1@students.mq.edu.au
+Date of data collection: June 2020- July 2021
+Information about geographic location of data collection: Lomergat, Bay of Brest, France
+Keywords used to describe the data topic: Metadata analysis, predation, marine ecology, nudibranchs
+
+Background:
+
+The study ‘Nudibranch predation boosts sponge silicon cycling’ was an experimental study design by López-Acosta et al., 2023. It involved the manipulation of one variable (i.e., nudibranch predation) to observe the effect on another variable (sponge biomass). The metadata for this study contained abundance values for the spongivorous nudibranch Doris Verrucosa and the sponge Hymeniacidon perlevis in Lomergat (Bay of Brest, France). Morphometric measurements (i.e. length, height, width and weight) were also recorded for D.verrucosa. 
+
+Meta-data analysis was performed using this dataset and historical values for D. verrucosa from Lima and Simone, 2015. The questions this analysis focuses on are as follows:
+
+1.	The effect that nudibranch predation has on sponge biomass in late June/early July. Is it causing a significant decrease in sponge biomass? Or is the difference not significant relative to other months?
+2.	If there is a significant negative correlation between the biomass of the sponge and the nudibranch peak abundance period.
+3.	If there is a significant difference between the morphological measurement (i.e length) for D. verrucosa in Lomergat compared to other studies (i.e. Lima and Simone, 2015).
+4.	What Is the Pearson correlation coefficient between the abundance of prey and predator?
+
+More information on this study can be found in the preregistration file 'PreReg_Apr23_NRoberts.docx'
+
+
+references:
+
+Lima, P.O.V. and Simone, L.R.L. (2015). Anatomical review of Doris verrucosa and redescription of Doris januarii (Gastropoda, Nudibranchia) based on comparative morphology. Journal of the Marine Biological Association of the United Kingdom, 95(6), pp.1203–1220. doi:https://doi.org/10.1017/s0025315415000296.
+
+López-Acosta, M., Potel, C., Gallinari, M., Pérez, F.F. and Leynaert, A. (2023). Nudibranch predation boosts sponge silicon cycling. Scientific Reports, 13(1). doi:https://doi.org/10.1038/s41598-023-27411-y.
