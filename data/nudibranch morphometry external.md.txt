@@ -1,0 +1,21 @@
+Name of individual performing metadata analysis: Natalie Roberts, HDR student Macquarie University
+Original Dataset Authors: (Lima and Simone, 2015) 'Anatomical review of Doris verrucosa and redescription of Doris januarii (Gastropoda, Nudibranchia) based on comparative morphology'
+institution/address/email information for Principal investigator: Natalie.roberts1@students.mq.edu.au
+Date of data collection: Study published in 2015
+Information about geographic location of data collection: Specimens collected for this research were from Atlantic Coast of Spain and Rio de janeiro, Brazil.
+
+
+Keywords used to describe the data topic: Metadata analysis, predation, marine ecology, nudibranchs
+
+Background:
+
+The paper by Lima and Simone, 2015 provides a comprehensive study of the internal and external anatomy of Doris verrucosa using various imaging techniques. The external morphology data has been taken from this paper for D. verrucosa found in the Atlantic Coast of Spain and Rio de janeiro, Brazil. 
+
+
+More information on this paper can be found in the preregistration file 'PreReg_Apr23_NRoberts.docx'
+
+
+references:
+
+Lima, P.O.V. and Simone, L.R.L. (2015). Anatomical review of Doris verrucosa and redescription of Doris januarii (Gastropoda, Nudibranchia) based on comparative morphology. Journal of the Marine Biological Association of the United Kingdom, 95(6), pp.1203–1220. doi:https://doi.org/10.1017/s0025315415000296.
+
