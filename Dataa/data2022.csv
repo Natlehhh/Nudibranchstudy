@@ -1,0 +1,171 @@
+﻿N,Habitat,Abundance sponges,Sponge biomass
+1,Rocky intertidal,1,3.75
+2,Rocky intertidal,3,26.13
+3,Rocky intertidal,3,23.24
+4,Rocky intertidal,1,57.54
+5,Rocky intertidal,3,27.77
+6,Rocky intertidal,4,117.87
+7,Rocky intertidal,7,260.99
+8,Rocky intertidal,3,76.41
+9,Rocky intertidal,2,57.17
+10,Rocky intertidal,2,31.14
+11,Rocky intertidal,10,110.55
+12,Rocky intertidal,9,223.33
+13,Rocky intertidal,1,20.86
+14,Rocky intertidal,7,40.69
+15,Rocky intertidal,5,60.61
+16,Rocky intertidal,3,72.52
+17,Rocky intertidal,1,608.50
+18,Rocky intertidal,4,38.07
+19,Rocky intertidal,2,200.25
+20,Rocky intertidal,3,187.50
+21,Rocky intertidal,2,205.81
+22,Rocky intertidal,4,205.82
+23,Rocky intertidal,3,190.07
+1,Rocky subtidal,11,"1,233.50"
+2,Rocky subtidal,25,342.85
+3,Rocky subtidal,16,393.63
+4,Rocky subtidal,23,726.39
+5,Rocky subtidal,17,"18,485.50"
+6,Rocky subtidal,21,651.68
+7,Rocky subtidal,30,956.89
+8,Rocky subtidal,15,"21,697.74"
+9,Rocky subtidal,23,"1,287.21"
+10,Rocky subtidal,1,416.00
+11,Rocky subtidal,29,728.11
+12,Rocky subtidal,16,212.30
+13,Rocky subtidal,16,132.25
+14,Rocky subtidal,3,47.85
+15,Rocky subtidal,11,383.50
+16,Rocky subtidal,11,365.52
+17,Rocky subtidal,7,334.54
+18,Rocky subtidal,7,298.25
+19,Rocky subtidal,25,837.90
+20,Rocky subtidal,28,"47,446.35"
+21,Rocky subtidal,32,"1,421.04"
+22,Rocky subtidal,6,"1,551.40"
+23,Rocky subtidal,15,261.78
+24,Rocky subtidal,13,112.91
+25,Rocky subtidal,31,344.95
+26,Rocky subtidal,22,"14,564.44"
+27,Rocky subtidal,28,"1,144.65"
+28,Rocky subtidal,9,79.66
+29,Rocky subtidal,3,156.88
+30,Rocky subtidal,10,396.70
+31,Rocky subtidal,4,156.24
+1,Maerl,21,21.67
+2,Maerl,30,83.21
+3,Maerl,12,34.80
+4,Maerl,32,76.63
+5,Maerl,6,8.46
+6,Maerl,12,120.00
+7,Maerl,7,56.88
+8,Maerl,7,27.90
+9,Maerl,9,36.43
+10,Maerl,8,28.11
+11,Maerl,4,11.75
+12,Maerl,35,562.55
+13,Maerl,55,536.71
+14,Maerl,55,701.43
+15,Maerl,61,"1,273.28"
+16,Maerl,13,262.82
+17,Maerl,7,390.41
+18,Maerl,8,41.25
+19,Maerl,16,101.55
+20,Maerl,68,667.76
+21,Maerl,79,784.74
+22,Maerl,13,234.08
+23,Maerl,22,364.58
+24,Maerl,25,514.23
+25,Maerl,38,545.68
+26,Maerl,29,754.40
+27,Maerl,6,198.45
+28,Maerl,5,67.16
+29,Maerl,3,151.20
+30,Maerl,7,90.09
+31,Maerl,3,38.32
+32,Maerl,3,57.25
+33,Maerl,4,266.34
+34,Maerl,2,22.70
+35,Maerl,1,720.00
+36,Maerl,84,877.38
+37,Maerl,92,891.27
+38,Maerl,77,412.93
+39,Maerl,7,128.73
+40,Maerl,16,84.40
+1,Shallow muds,1,15.00
+2,Shallow muds,0,0.00
+3,Shallow muds,1,108.00
+4,Shallow muds,1,"1,150.35"
+5,Shallow muds,0,0.00
+6,Shallow muds,0,0.00
+7,Shallow muds,0,0.00
+8,Shallow muds,0,0.00
+9,Shallow muds,0,0.00
+10,Shallow muds,0,0.00
+11,Shallow muds,4,136.94
+12,Shallow muds,0,0.00
+13,Shallow muds,0,0.00
+14,Shallow muds,0,0.00
+15,Shallow muds,1,32.73
+16,Shallow muds,0,0.00
+17,Shallow muds,0,0.00
+1,Heterog seds,6,45.49
+2,Heterog seds,15,134.41
+3,Heterog seds,12,178.85
+4,Heterog seds,15,131.31
+5,Heterog seds,15,162.58
+6,Heterog seds,7,52.76
+7,Heterog seds,9,64.47
+8,Heterog seds,1,462.00
+9,Heterog seds,0,0.00
+10,Heterog seds,1,33.00
+11,Heterog seds,0,0.00
+12,Heterog seds,0,0.00
+13,Heterog seds,1,"2,252.25"
+14,Heterog seds,0,0.00
+15,Heterog seds,0,0.00
+16,Heterog seds,0,0.00
+17,Heterog seds,0,0.00
+18,Heterog seds,0,0.00
+19,Heterog seds,0,0.00
+20,Heterog seds,2,589.00
+21,Heterog seds,0,0.00
+22,Heterog seds,0,0.00
+23,Heterog seds,4,112.50
+24,Heterog seds,10,280.05
+25,Heterog seds,6,285.99
+26,Heterog seds,1,33.51
+27,Heterog seds,4,125.00
+28,Heterog seds,9,131.85
+29,Heterog seds,8,100.34
+30,Heterog seds,8,228.74
+31,Heterog seds,13,149.97
+32,Heterog seds,1,34.66
+33,Heterog seds,1,8.40
+34,Heterog seds,0,3.00
+35,Heterog seds,2,27.38
+36,Heterog seds,4,55.73
+1,Circ.coarse seds,0,4.95
+2,Circ.coarse seds,2,21.72
+3,Circ.coarse seds,0,0.00
+4,Circ.coarse seds,0,0.28
+5,Circ.coarse seds,1,11.01
+6,Circ.coarse seds,1,15.83
+7,Circ.coarse seds,1,6.22
+8,Circ.coarse seds,2,12.98
+9,Circ.coarse seds,0,5.4
+10,Circ.coarse seds,2,8.92
+11,Circ.coarse seds,3,9.61
+12,Circ.coarse seds,2,4.10
+13,Circ.coarse seds,1,3.82
+14,Circ.coarse seds,19,212.71
+15,Circ.coarse seds,2,8.44
+16,Circ.coarse seds,1,9.33
+17,Circ.coarse seds,4,12.73
+18,Circ.coarse seds,4,11.86
+19,Circ.coarse seds,3,18.45
+20,Circ.coarse seds,2,6.74
+21,Circ.coarse seds,1,6.71
+22,Circ.coarse seds,11,53.08
+23,Circ.coarse seds,15,161.30

@@ -1,0 +1,458 @@
+---
+title: "NSCI7915 Preliminary Analysis" 
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+date: "2023-05-20"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load-packages, include= FALSE}
+library(car)
+library(lme4)
+library(multcomp)
+````
+<div align="center"><font size= 5>**Hypothesis 1: The abundance of H.perlevis is influenced by month**</div></font>
+
+Metadata: Nudibranch predation boosts sponge silicon cycling (2023)
+
+Independent Variable ($IV$) = Month (Jun20, Nov20, Apr20, Jun21)
+
+Dependent variable ($D$) = Abundance (n)
+
+Null Hypothesis ($H_{0}$): There is no significant relationship between the abundance of Hymeniacidon perlevis and the month. 
+
+Alternative Hypothesis ($H_A$): There is a relationship between the abundance of Hymeniacidon perlevis and the month.
+
+Due to the predator Doris Verrucosa and its peak abundance season being late June/early July we expect to see a relationship of June 2021 = June 2020 > April 2020 > November 2021 in regards to biomass. 
+
+
+<div align = "center"><font size= 1.5>*Table 1:Statistical summary of data from the 2023 study *</div></font>
+```{r, echo=FALSE}
+
+prey_ab_vol <- read.csv('Dataa/prey_ab_vol.csv')
+prey_ab_vol$row_id <- factor(1:nrow(prey_ab_vol))
+Summaryprey_ab_vol <- summary(prey_ab_vol)
+summary(prey_ab_vol)
+````
+
+
+<div align = "center"><font size= 1.5>*Table 2: Standard deviation of abundance (n) and volume (mL) data from the 2023 study for hypothesis 1 & 2*</div></font>
+```{r, echo=FALSE}
+sd_N.H..perlevis <- sd(prey_ab_vol$N.H..perlevis)
+sd_Volumen.Hym..mL. <- sd(prey_ab_vol$Volumen.Hym..mL.)
+
+SDresults <- paste("Standard Deviation (N.H..perlevis):", sd_N.H..perlevis, "Standard Deviation (Volumen.Hym..mL.):", sd_Volumen.Hym..mL.)
+print(SDresults)
+  
+boxplot(sqrt(N.H..perlevis)~ Date,prey_ab_vol,col="lemonchiffon", main = "Relationship between abundance (n) per quadrant and month")
+````
+
+<div align = "center"><font size= 1.5>*Figure 1: Boxplot of the relationship between abundance (n) per quadrant and the month the measurement was taken.(x-axis): The month the abundance (n) was measured and (y-axis): the square root of the abundance (n).*</div></font>
+
+
+```{r, echo=FALSE}
+m1 <- glm(N.H..perlevis ~ Date,prey_ab_vol,family='poisson')
+````
+
+<div align = "center"><font size= 1.5>*Table 3: Overdispersion function for glm model*</div></font>
+
+```{r, echo=FALSE}
+overdisp_fun <- function(model) {
+    rdf <- df.residual(model)
+    rp <- residuals(model,type="pearson")
+    Pearson.chisq <- sum(rp^2)
+    prat <- Pearson.chisq/rdf
+    pval <- pchisq(Pearson.chisq, df=rdf, lower.tail=FALSE)
+    c(chisq=Pearson.chisq,ratio=prat,rdf=rdf,p=pval)
+}
+overdisp_fun(m1)
+````
+
+
+<div align = "center"><font size= 1.5>*Table 4: Overdispersion function for glmer model*</div></font>
+```{r, echo=FALSE}
+m1 <- glmer(N.H..perlevis ~ Date + (1|row_id),prey_ab_vol,family='poisson')
+ overdisp_fun(m1)
+````
+
+
+<div align = "center"><font size= 1.5>*Table 5: Chisq drop1 test results*</div></font>
+```{r, echo=FALSE}
+drop1(m1,test='Chisq')
+```
+<div align = "center"><font size= 1.5>*Table 6: Generalised linear mixed effects model (GLMM) and posthoc tukey test*</div></font>
+```{r, echo=FALSE}
+summary(glht(m1, linfct = mcp(Date = "Tukey")))
+````
+
+```{r, echo=FALSE}
+residuals <- resid(m1, type = "pearson")
+qqnorm(residuals)
+qqline(residuals)
+```
+*Figure 2: QQ plot for GLMM model fixed effects.*</div></font>
+
+
+```{r, echo=FALSE}
+qqnorm(ranef(m1)$row_id[,1]); qqline(ranef(m1)$row_id[,1])
+
+```
+<div align = "center"><font size= 1.5>*Figure 3: QQ plot for GLMM model random effects.*</div></font>
+
+
+<div align = "center"><font size= 1.5>*Table 7: Levenes test for homogeneity of variance*</div></font>
+
+```{r, echo=FALSE}
+leveneTest(residuals(m1,'pearson')~prey_ab_vol$Date)
+````
+
+<div align = "center"><font size= 5>**Results**</div></font>
+
+A boxplot was used the visualise the relationship between the abundance of H. perlevis over the months. The single terms deletions analysis was used to assess the significance of the ‘date’ variable in predicting the volume of H.perlevis.  The initial model fitted with the variable ‘date’ as the predictor had an Akaike information criterion (AIC) of 574.87 and npara of 3. Removing ‘date’ from the model slightly increased AIC to 574.94. The likelihood ratio test (LRT) statistic was 6.0749, with a $p$= 0.108. The removal of the ‘date’ variable did not significantly impact the model fit. The ‘date’ variable is not a significant predictor of the abundance (n) of H.perlevis. 
+
+Using row ID as the intercept, results from the Generalized Linear Mixed-effects Model (glmer) and posthoc Tukey test showed there was not sufficient evidence (p-value <0.05) to reject the null hypothesis while accounting for the random effects; Jun20-Apr 21 (Pr= 0.2826), Jun21-Apr21 (Pr = 0.0901), Nov20-Apr21 (Pr = 0.8895), Jun21-Jun20 (Pr =0.9179), Nov20-Jun20 (Pr=0.7895), Nov20-Jun21 (Pr =0.4547). Levenes test supports the null hypothesis of homogeneity of variance using pearson distribution $F_{3,67}$ = 1.5264, $p$ = 0.2157.
+ 
+
+
+<div align = "center"><font size= 5>**Assumptions of Analyses **</div></font>
+
+
+
+**Independence of observations**: No two observations in the dataset are related to each other or affect each other in any way.
+
+**Poisson distribution**: The GLMM model does not suffer from overdispersion (refer to table 4). Residuals are normally distributed (refer to figure 2)
+
+**Accounting for under/overdispersion of variance**: Poisson distribution assumed that the variance of the abundance is equal across all levels for the variable date. For pearson distribution the assumption of homogeneity of variance was met (refer to table 7)
+
+**Random effects assumption**:  Random effects are normally distributed (refer to figure 3). 
+
+
+<div align="center"><font size= 5>**Hypothesis 2: Is there a relationship between the number of sponges and the biomass (mL) **</div></font>
+
+Metadata from: Nudibranch predation boosts sponge silicon cycling (2023)
+
+IV= Abundance of sponges (n)
+
+D= H.perlevis volume (mL)
+
+Null Hypothesis ($H_{0}$): There is no significant relationship between the abundance of Hymeniacidon perlevis and volume
+Alternative Hypothesis ($H_A$):  There is a significant relationship between the abundance of Hymeniacidon perlevis and volume
+
+Analyses: pearsons correlation test
+
+
+<div align = "center"><font size= 1.5>*Table 8: Statistical summary of abundance and volume data from the 2023 study*</div></font>
+
+```{r, echo=FALSE}
+print(Summaryprey_ab_vol)
+````
+
+<div align = "center"><font size= 1.5>*Table 9: Pearsons correlation between the log of abundance (n) and volume (mL) *</div></font>
+
+```{r, echo=FALSE}
+
+cor.test(log(prey_ab_vol$N.H..perlevis),log(prey_ab_vol$Volumen.Hym..mL.))
+````
+
+<div align = "center"><font size= 5>**Results **</div></font>
+
+A Pearson correlation test was done between the abundance of H.perlevis (n) and the volume of H.perlevis (mL). The correlation coefficient was 0.5149891 indicating a moderate positive linear relationship (df= 69, p-value = $4.326 \times 10^{-6}$, confidence interval = 95%). This analysis provides evidence to reject the null hypothesis.
+
+<div align = "center"><font size= 5>**Assumption of analysis **</div></font>
+
+**Linearity**: The relationship between Date and the volume of H.perlevis is linear 
+
+**Continous data**: Each variable is continous in nature
+
+**Independence of observations**: No two observations in the dataset are related to each other or affect each other in any way.
+
+**Normal distribution**: The residuals are normally distributed
+
+**Homogeneity of variance**: The variance of the volume of H.perlevis is equal across all groups for the months 
+
+
+
+<div align="center"><font size= 5>**Hypothesis 3: Does the month have a effect on the volume of H.perlevis?**</div></font>
+
+Metadata from: Nudibranch predation boosts sponge silicon cycling (2023)
+
+IV= Month (Jun20,Nov20,Apr20,Jun21)
+
+D= H.perlevis volume (mL)
+
+Null Hypothesis ($H_{0}$): There is no significant relationship between the volume of Hymeniacidon perlevis and the month
+
+Alternative Hypothesis ($H_A$): There is a significant relationship between the volume of Hymeniacidon perlevis and the month
+
+Analyses: one-way ANOVA, Tukey post-hoc test, Boxplot, levenes test
+
+
+<div align = "center"><font size= 1.5>*Table 10: One way anova and posthoc tukey test between the volume (mL) of H.perlevis and the months *</div></font>
+
+```{r, echo=FALSE}
+m7 <- aov(log(Volumen.Hym..mL.) ~ Date,prey_ab_vol)
+anova(m7)
+TukeyHSD(m7,ordered=TRUE)
+````
+
+```{r, echo=FALSE}
+boxplot(log(Volumen.Hym..mL.)~Date,prey_ab_vol,main = "Relationship between volume and month",col= 'pink')
+```
+<div align = "center"><font size= 1.5>*Figure 4: Boxplot of the relationship between month/date and the log of the volume (mL) for H.perlevis.(x axis): The month the volume was measured and (y axix): the log of the volume.*</div></font>
+
+
+
+
+
+<div align = "center"><font size= 1.5>*Table 11: Levenes test for homogeneity of variance  *</div></font>
+```{r, echo=FALSE}
+library(car)
+leveneTest(m7)
+```
+
+  
+```{r, echo=FALSE}
+residualsm5 <- residuals(m7)
+qqnormm5 <- qqnorm(residualsm5)
+qqnormm5 <- qqline(residualsm5)
+```
+<div align = "center"><font size= 1.5>*Figure 5: QQ plot for ANOVA model *</div></font>
+
+
+
+
+
+<div align = "center"><font size= 5>**Results **</div></font>
+
+
+The ANOVA analysis indicated a significant effect of the variable ‘date’ on the logarithmically transformed variable ‘volume of H.perlevis’ ($F_{3,67}$ = 51.380, $p$= $2.35\times 10^{-17}$ (<0.05). A post hoc Tukey test showed that the volume of H.perlevis among the months differed significantly at p <.05 and confidence level of 95% [April 21- Nov 20 ($p$= $3.2\times 10^{-4}$), Jun 21 – Nov 20 ($p$= 0), Jun 20- Nov 20 ($p$= 0), Jun 21 – Apr 21 ($p$ = $4.4\times 10^{-2}$), Jun 20- Apr 21 ($p$= 0), Jun 20 – Jun 21 ($p$ $5.7\times 10^{-6}$)]. The results of the ANOVA test support the alternative and reject the null hypothesis.A boxplot was used to visualise the relationship between date and logarithmically tranformed volume (refer to figure 4). Levene’s test was conducted to examine the homogeneity of variables across the levels for the independent variable ‘date’. A non-significant result was observed ($F_{3,67}$) = 0.4505, $p$= 0.7178). Levenes test supports the null hypothesis of homogeneity of variance using pearson distribution (($F_{3,67}$) = 0.4505, $p$ = 0.7178)
+
+
+
+
+<div align = "center"><font size= 5>**Assumptions of Analyses **</div></font>
+
+
+**Independence of observations**: No two observations in the dataset are related to each other or affect each other in any way.
+
+
+**Normal distribution**: The residuals are normally distributed (refer to figure 5)
+
+
+**Homogeneity of variance**: The variance of the volume of H.perlevis is equal across all groups for the months (refer to table 11).
+
+
+
+<div align="center"><font size= 5>**Hypothesis 4: Is there a relationship between average volume of H.perlevis per month and pH, salinity and temperature averages for the months**</div></font>
+
+Metadata from: Nudibranch predation boosts sponge silicon cycling (2023)
+Temp,Salinity and pH values obtained from Somlit.
+
+IV= average Temp (T), Salinity (S) and PH values for the month the volume was measured
+
+D=  average sponge volume per month (mL sponge m-2) given by ((ponge volume mL./abundance) per quadrant, averages for the months)
+
+Null Hypothesis ($H_{0}$): There is no signfiicant relationship between the average volume of H.perlevis per month (D) and the average temperature (T), salinity (S), and pH values for the corresponding months.
+
+Alternative Hypothesis ($H_{A}$): There is a signfiicant relationship between the average volume of H.perlevis per month (D) and the average temperature (T), salinity (S), and pH values for the corresponding months.
+
+Analyses: pearsons correlation
+
+<div align = "center"><font size= 1.5>*Table 12: Summary statistics for temperature, salinity and pH data from SOMLIT *</div></font>
+
+```{r, echo=FALSE}
+
+suppressPackageStartupMessages({
+  library(dplyr)
+})
+
+TpHSal <- read.csv('Dataa/TempsalinitypH.csv')
+empty_columns <- which(colSums(is.na(TpHSal)) == nrow(TpHSal))
+TpHSal <- subset(TpHSal, select = -empty_columns)
+summaryTpHSal <- summary(TpHSal)
+print(summaryTpHSal)
+
+sdT <- sd(TpHSal$T)
+sdpH <- sd(TpHSal$PH)
+Sal <- sd(TpHSal$S)
+SDresults2 <- paste("Standard Deviation (T):", sdT, "Standard Deviation (pH):", sdpH, "Standard Deviation (Sal):", Sal)
+print(SDresults2)
+
+```
+<div align = "center"><font size= 1.5>*Table 13: Averages data for Temp, pH, salinity and volume per month brackets *</div></font>
+
+
+```{r, echo=FALSE}
+library(dplyr)
+data <- data.frame(
+  ID_SITE = c(5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5),
+  DATE = as.Date(c("10/6/2020", "18/6/2020", "26/6/2020", "5/11/2020", "12/11/2020", "20/11/2020", "27/11/2020", "3/4/2021", "8/4/2021", "16/4/2021", "7/6/2021", "15/6/2021", "21/6/2021", "29/6/2021"), format = "%d/%m/%Y"),
+  T = c(15.416, 15.892, 16.824, 13.417, 13.241, 13.048, 12.848, 11.072, 11.23, 10.971, 15.061, 16.295, 15.688, 15.399),
+  S = c(34.733, 34.632, 34.704, 34.552, 34.424, 34.56, 34.31, 33.62, 33.8, 34.156, 34.626, 34.762, 34.865, 35.014),
+  PH = c(8.138, 7.959, 7.953, 7.799, 8.055, 7.791, 7.794, 7.9, 7.93, 7.91, 7.94, 7.91, 7.93, 7.88)
+)
+data$DATE <- as.POSIXlt(data$DATE)
+data$Month <- data$DATE$mon + 1
+data$Year <- data$DATE$year + 1900
+averagestemp_ph_S <- aggregate(cbind(T, S, PH) ~ Month + Year, data, FUN = mean)
+june_2020 <- subset(averagestemp_ph_S, Month == 6 & Year == 2020)
+june_2021 <- subset(averagestemp_ph_S, Month == 6 & Year == 2021)
+print(averagestemp_ph_S)
+averages2 <- aggregate(Volumen.Hym..mL. / N.H..perlevis ~ Date, prey_ab_vol, FUN = mean)
+print(averages2)
+averagesvolume <- data.frame(
+  Month = c(6, 11, 4, 6),
+  Year = c(2020, 2020, 2021, 2021),
+  Volumen.Hym..mL..N.H..perlevis = c(3.8781924, 12.6688840, 3.0448443, 0.8122513)
+)
+```
+
+<div align = "center"><font size= 1.5>*Table 14: Correlation analysis for volume of H.perlevis vs T,S and pH *</div></font>
+
+
+```{r, echo=FALSE}
+merged_dataset <- merge(averagesvolume, averagestemp_ph_S, by = c('Year', 'Month'))
+correlation2 <- cor(merged_dataset[, c("Volumen.Hym..mL..N.H..perlevis", "T", "S", "PH")])
+print(correlation2)
+
+```
+
+
+
+
+<div align = "center"><font size= 5>**Results **</div></font>
+
+A correlation test was used to show the relationship between volume of H.perlevis for the different months and T, S and Ph for the corresponding month. Volume had a weak negative correlation with temperature (r= -0.276) and a weak negative correlation with salinity (r= -0.085). It has a moderate negative correlation with the variable pH (r= -0.526). 
+
+
+<div align = "center"><font size= 5>**Assumption of Analyses **</div></font>
+
+
+**Independence of observations**: No two observations in the dataset are related to each other or affect each other in any way.
+
+**Linearity**: The relationship between Date and the volume of H.perlevis is linear 
+
+**Homogeneity of variance**: The variance of the volume of H.perlevis is equal across all groups for the months. 
+
+
+
+
+<div align="center"><font size= 5>**Hypothesis 5: What is the relationship between the abundance of H.perlevis and biomass per haibitat (2022 study)**</div></font>
+
+metadata: Sponge contribution to the silicon cycle of a diatom-rich shallow bay (2022) 
+IV= habitat& abundance (N sponge m-2)
+D= biomass (mL sponge m-2)
+Habitats= Rocky intertidal,Rocky subtidal,Maerl,Shallow muds,Heterog seds,Circ.coarse seds
+
+
+Null Hypothesis ($H_{0}$): There is no significant relationship between biomass and the interaction between Habitat and abundance
+
+Alternative Hypothesis ($H_A$): There is a significant relationship between biomass and the interaction between Habitat and abundance
+
+Analyses: scatterplot, linear regression analysis, anova (m10b and m10), regression analysis
+
+```{r, echo=FALSE}
+library(ggplot2)
+data2022 <- read.csv('Dataa/data2022.csv')
+data2022$row_id <- factor(1:nrow(data2022))
+data2022 <- data2022[data2022$Abundance.sponges > 0, ]
+data2022$Sponge.biomass <- as.numeric(gsub("[^0-9.]", "", data2022$Sponge.biomass))
+```
+
+<div align = "center"><font size= 1.5>*Table 15: Summary statistics for abundance (N sponge m-2) and biomass (mL sponge m-2)  of H.perlevis sponges from 2022 study *</div></font>
+
+```{r, echo=FALSE}
+summarydata2022 <- summary(data2022)
+print(summarydata2022)
+sdabundance <- sd(data2022$Abundance.sponges)
+sdbiomass <- sd(data2022$Sponge.biomass)
+
+sd2022 <- paste("Standard Deviation (Abundance):", sdabundance, "Standard Deviation (Biomass):", sdbiomass)
+print(sd2022)
+```
+
+```{r, echo=FALSE}
+data2022$log.n <- log(data2022$Abundance.sponges)
+data2022$log.biomass <- log(data2022$Sponge.biomass)
+````
+
+
+
+<div align = "center"><font size= 1.5>*Table 16: ANCOVA analysis for homogeneity of slopes in model 10 (m10).With log biomass as the dependent variable and habitat,abundance (log.n) and their interaction as independent variables. *</div></font>
+```{r, echo=FALSE}
+m10 <- lm(log.biomass ~ Habitat*log.n, data = data2022)
+anova(m10)
+```
+
+
+
+<div align = "center"><font size= 1.5>*Table 17: ANOVA test for model (M10b) without interaction between log biomass and abundance per habitat.Log biomass is the dependent variable, and habitat and abundance (log.n) are the seperate independent variables.   *</div></font>
+
+```{r, echo=FALSE}
+m10b <- lm(log.biomass ~ Habitat + log.n, data = data2022)
+anova(m10b)
+
+````
+<div align = "center"><font size= 1.5>*Table 18: ANOVA Summary of linear model chosen (m10b) *</div></font>
+
+```{r, echo=FALSE}
+summary(m10b)
+`````
+
+<div align = "center"><font size= 1.5>*Table 19: Posthoc test on ANOVA*</div></font>
+
+```{r, echo=FALSE}
+TukeyHSD(aov(log.biomass ~ Habitat + log.n, data = data2022),'Habitat')
+```
+
+
+```{r, echo=FALSE}
+dog <- lm(log.biomass~log.n + Habitat,data2022)
+pred <- predict(dog)
+
+
+ggplot(data2022,aes(x=log.n,y=log.biomass,color=Habitat)) + geom_point() +
+  geom_line(aes(y=pred))
+  
+
+
+````
+<div align = "center"><font size= 1.5>*Figure 6: Scatterplots of the relationship between (x): log abundance (N sponge m-2) and (y): log biomass (mL sponges m-2), per habitat. *</div></font>
+
+
+
+
+```{r, echo=FALSE}
+
+residualsm3 <- residuals(m10b)
+qqnormm3 <- qqnorm(residualsm3)
+qqnormm3 <- qqline(residualsm3)
+
+````
+<div align = "center"><font size= 1.5>*Figure 7 : QQ plot for linear model 10b*</div></font>
+
+
+<div align = "center"><font size= 5>**Results **</div></font>
+
+
+ANCOVA was used to assess relationships between biomass and abundance and whether those
+relationships varied among habitats. A homogeneity of slopes test indicated that the slopes of the log-log relationship between biomass and abundance were similar for the six habitats ($F_{5,130}$ = 1.1137, $P$ = 0.3563). The scatterplot (figure 6) was used to visualise the relationship between abundance and biomass for each habitat. Assuming a common slope of 0.6314 for all sites, the intercept differed signifcantly among habitats ($F_{5,135}$)= 25.328, $p$ = $2.2\times10^{-16}$) and abundance ($F_{135,1}$)=33.831, $p$= $4.146\times10^{-08}$). Tukey's posthoc test of the model (Residual standard error: 1.206 on 135 degrees of freedom) showed each habitat level shows a signignicant effects on log.biomass ($F_{135}$)= 26.75, $p$= $2.2\times10^{-16}$)). The model explains approx. 54.31% of the variance in the biomass variable (multiple R-squared). There is strong evidence to support the alternative hypothesis and reject the null.
+
+
+
+<div align = "center"><font size= 5>**Assumption of Analyses **</div></font>
+
+
+**Independence of observations**:No two observations in the dataset are related to each other or affect each other in any way.
+
+**Normal distribution**: The residuals of the data are normally distributed (represented by figure 7).
+
+
+**Homogeneity of variance**: The variance of the volume and abundance of H.perlevis is equal across all groups for the habitats.
+
+
