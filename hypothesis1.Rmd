@@ -1,0 +1,244 @@
+---
+title: "Hypothesis1"
+output:
+  pdf_document: default
+  html_document: default
+date: "2023-06-16"
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(repos = "https://cloud.r-project.org")
+
+library(car)
+library(lme4)
+library(multcomp)
+library(ggplot2)
+install.packages("knitr")
+install.packages("kableExtra")
+
+
+library(knitr)
+library(kableExtra)
+
+
+
+
+
+
+```
+Hypothesis 1: The size-correct abundance of H.perlevis is influenced by month
+
+```{r, echo=FALSE}
+overdisp_fun <- function(model) {
+    rdf <- df.residual(model)
+    rp <- residuals(model,type="pearson")
+    Pearson.chisq <- sum(rp^2)
+    prat <- Pearson.chisq/rdf
+    pval <- pchisq(Pearson.chisq, df=rdf, lower.tail=FALSE)
+    c(chisq=Pearson.chisq,ratio=prat,rdf=rdf,p=pval)
+}
+
+```
+
+
+```{r, echo=FALSE}
+prey_ab_vol <- read.csv('Dataa/prey_ab_vol.csv')
+prey_ab_vol$n <- prey_ab_vol$N.H..perlevis
+prey_ab_vol$row_id <- factor(1:nrow(prey_ab_vol))
+prey_ab_vol$Date <- factor(prey_ab_vol$Date)
+prey_ab_vol <- prey_ab_vol[, colSums(is.na(prey_ab_vol)) == 0]
+
+#cleaning up names 
+# Rename specific columns by name
+old_names <- c("N.quadrat", "N.H..perlevis","Volumen.Hym..mL."," Date","row_id")  # Example: column names to be renamed
+new_names <- c("Quadrant number ", "Abundance (n)","Volume (mL)","Date","row_id")  # Example: new names for the columns
+
+for (i in 1:length(old_names)) {
+  colnames(prey_ab_vol)[colnames(prey_ab_vol) == old_names[i]] <- new_names[i]
+}
+
+
+#summary statistics 
+
+# Summary staitistcs for dataset 1
+summaryprey_ab_vol <- summary(prey_ab_vol)
+summary_table1 <- as.data.frame(summaryprey_ab_vol)
+filtered_table1 <- summary_table1[complete.cases(summary_table1), ]
+kable(filtered_table1, align = "c", caption = "Summary for dataset 1")
+
+
+# SD Table
+sd_abundance <- sd(prey_ab_vol$`Abundance (n)`)
+sd_volume <- sd(prey_ab_vol$`Volume (mL)`)
+
+sd_table2 <- data.frame(
+  Metric = c("Abundance", "Volume"),
+  StandardDeviation = c(sd_abundance, sd_volume)
+)
+kable(sd_table2, align = "c", caption = "Standard deviation of Abundance (n) and Volume (mL)")
+
+# mean for each date
+meansdabundance <- aggregate(`Abundance (n)` ~ Date, data = prey_ab_vol, FUN = function(x) c(mean = mean(x), SD = sd(x)))
+meansdvolume <- aggregate(`Volume (mL)` ~ Date, data = prey_ab_vol, FUN = function(x) c(mean = mean(x), SD = sd(x)))
+
+summary_table <- merge(meansdabundance, meansdvolume, by = "Date", suffixes = c("Abundance", "Volume"))
+kable(summary_table, align = "c", caption = " mean volume and abundance for dates")
+
+# to find out when highest and lowest volumes were recorded for each month 
+
+#volume
+highest_volume <- max(prey_ab_vol$`Volume (mL)`)
+highest_volume_rows <- prey_ab_vol[prey_ab_vol$`Volume (mL)` == highest_volume, ]
+lowest_volume <- min(prey_ab_vol$`Volume (mL)`)
+lowest_volume_rows <- prey_ab_vol[prey_ab_vol$`Volume (mL)` == lowest_volume, ]
+
+merged_rows <- rbind(highest_volume_rows, lowest_volume_rows)
+kable(merged_rows, align = "c", caption = "Highest and lowest volume (mL)")
+
+#abundance
+
+highest_abundance<- max(prey_ab_vol$`Abundance (n)`)
+highest_abundance_rows <- prey_ab_vol[prey_ab_vol$`Abundance (n)` == highest_abundance, ]
+lowest_abundance <- min(prey_ab_vol$`Abundance (n)`)
+lowest_abundance_rows <- prey_ab_vol[prey_ab_vol$`Abundance (n)` == lowest_abundance, ]
+
+merged_rows3 <- rbind(highest_abundance_rows, lowest_abundance_rows)
+kable(merged_rows3, align = "c", caption = "Highest and lowest abundance (n)")
+
+
+# GLM models
+
+#first model with interaction term, overdispersed (n ~ ln.biovolume * Date + (1 | row_id)
+prey_ab_vol$ln.biovolume <- log(prey_ab_vol$`Volume (mL)`/prey_ab_vol$`Abundance (n)`)
+m1 <- glm(`Abundance (n)` ~ ln.biovolume*Date,family=poisson,data=prey_ab_vol)
+
+#overdispersion function
+table6 <-(overdisp_fun(m1))
+kable(table6, align = "c", caption = "Overdispersion for GLM with interaction term")
+
+#new model
+# new model no overdispersion
+m2 <- glmer(n ~ ln.biovolume*Date +(1|row_id),family=poisson,data=prey_ab_vol)
+my <- m2
+#m2: n ~ ln.biovolume * Date + (1 | row_id)
+summary_tablea <- data.frame(
+  `Fixed effects` = c(
+    "(Intercept)", "ln.biovolume", "DateJun20", "DateJun21", "DateNov20", "ln.biovolume:DateJun20",
+    "ln.biovolume:DateJun21", "ln.biovolume:DateNov20"
+  ),
+  Estimate = c(3.1512, -0.5586, 0.7878, 0.9128, -0.4735, 0.1806, -0.2845, 0.2049),
+  `Std. Error` = c(0.2868, 0.2564, 0.6705, 0.5771, 0.3547, 0.3570, 0.5233, 0.3746),
+  `z value` = c(10.988, -2.178, 1.175, 1.582, -1.335, 0.506, -0.544, 0.547),
+  `Pr(>|z|)` = c("<2e-16 ***", "0.0294 *", "0.2400", "0.1137", "0.1819", "0.61302", "0.5867", "0.5843")
+)
+kable(summary_tablea, align = "c", caption = "Summary of Model 2, with interaction and row id")
+
+# overdispersion
+table7 <-(overdisp_fun(m2))
+kable(table7, align = "c", caption = "Overdispersion for GLM model 2")
+
+
+#chisq
+table6.1 <-(drop1(m2,test='Chisq'))
+kable(table6.1, align = "c", caption = "Chisq test with interaction model")
+
+# no need for interaction term, new modellll
+
+m3 <- glmer(`Abundance (n)` ~ ln.biovolume + Date +(1|row_id),family=poisson,data=prey_ab_vol)
+
+
+fixed_effects <- data.frame(
+  "Variable" = c("(Intercept)", "ln.biovolume", "DateJun20", "DateJun21", "DateNov20"),
+  "Estimate" = c(3.0714, -0.4722, 1.0911, 0.5996, -0.4443),
+  "Std. Error" = c(0.2128, 0.1428, 0.2997, 0.2171, 0.3093),
+  "z value" = c(14.435, -3.307, 3.640, 2.762, -1.436),
+  "Pr(>|z|)" = c("< 2e-16 ***", "0.000943 ***", "0.000272 ***", "0.005744 **", "0.150949")
+)
+
+kable(fixed_effects, align = "c", caption = "Summary of model 3")
+
+#chisq
+table6.2 <-(drop1(m3,test='Chisq'))
+kable(table6.2, align = "c", caption = "M3: chisq")
+
+
+
+library(knitr)
+linear_hypotheses <- data.frame(
+  Hypothesis = c("Jun20 - Apr21 == 0", "Jun21 - Apr21 == 0", "Nov20 - Apr21 == 0", 
+                 "Jun21 - Jun20 == 0", "Nov20 - Jun20 == 0", "Nov20 - Jun21 == 0"),
+  Estimate = c(1.0911, 0.5996, -0.4443, -0.4915, -1.5354, -1.0438),
+  `Std. Error` = c(0.2997, 0.2171, 0.3093, 0.2685, 0.4569, 0.3071),
+  `z value` = c(3.640, 2.762, -1.436, -1.831, -3.360, -3.399),
+  `Pr(>|z|)` = c("0.00146 **", "0.02585 *", "0.44277", "0.23402", "0.00400 **", "0.00349 **")
+)
+
+kable(linear_hypotheses,caption = "Model 3:Linear Hypotheses Summary,Tukey")
+
+library(knitr)
+
+data <- data.frame(
+  Variable = c("Jun20 - Apr21", "Jun21 - Apr21", "Nov20 - Apr21", "Jun21 - Jun20", "Nov20 - Jun20", "Nov20 - Jun21"),
+  Estimate = c(1.09108, 0.59956, -0.44427, -0.49153, -1.53535, -1.04382),
+  lwr = c(0.33509, 0.05204, -1.22451, -1.16881, -2.68788, -1.81853),
+  upr = c(1.847083, 1.14707, 0.33598, 0.18576, -0.38282, -0.26912)
+)
+
+kable(data,caption= "confidence interval tukey test")
+
+me <- (overdisp_fun(m3))
+kable(me,caption= "m3 overdispersionfun")
+
+
+
+
+
+
+
+
+
+
+
+
+ggplot(prey_ab_vol, aes(x = Date, y = sqrt(`Abundance (n)`))) +
+  geom_boxplot(fill = "#FFDAB9", color = "black") +
+  labs(title = "Relationship between abundance (n) per quadrant and month") +
+  xlab("Date") +
+  ylab("sqrt(abundance)")
+
+
+pred <- predict(m3,type='response',re.form=NA)
+ggplot(prey_ab_vol,aes(x=ln.biovolume,y=log(`Abundance (n)`),color=Date)) + geom_point() +
+  geom_line(aes(y=log(pred))) +
+    xlab("Log(Biomass)") +
+  ylab("Log(Abundance)")
+
+
+
+
+#levenes test
+
+levene_results <- data.frame(
+  "-" = c("group", ""),
+  Df = c("3", "67"),
+  `F value` = c(0.8323, NA),
+  `Pr(>F)` = c(0.4808, NA)
+)
+
+kable(levene_results,caption= "levenes test on pearson residuals")
+
+
+#residuals
+residuals <- resid(m3, type = "pearson")
+qqnorm(residuals)
+qqline(residuals)
+#random effects
+qqnorm(ranef(m3)$row_id[,1]); qqline(ranef(m3)$row_id[,1])
+
+
+
+
+
+

@@ -1,0 +1,136 @@
+---
+title: "hypothesis 4"
+output:
+  pdf_document: default
+  html_document: default
+date: "2023-06-18"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(repos = "https://cloud.r-project.org")
+
+library(car)
+library(lme4)
+library(multcomp)
+library(ggplot2)
+install.packages("knitr")
+install.packages("kableExtra")
+library(MASS)
+library(emmeans)
+
+
+library(knitr)
+library(kableExtra)
+
+```
+
+
+```{r, echo=FALSE}
+overdisp_fun <- function(model) {
+    rdf <- df.residual(model)
+    rp <- residuals(model,type="pearson")
+    Pearson.chisq <- sum(rp^2)
+    prat <- Pearson.chisq/rdf
+    pval <- pchisq(Pearson.chisq, df=rdf, lower.tail=FALSE)
+    c(chisq=Pearson.chisq,ratio=prat,rdf=rdf,p=pval)
+}
+
+```
+
+Hypothesis 4: What is the relationship between the abundance of H.perlevis and biomass corrected habitat (2022 study)**</div></font>
+  
+```{r, echo=FALSE}
+library(ggplot2)
+data2022 <- read.csv('Dataa/data2022.csv')
+data2022$row_id <- factor(1:nrow(data2022))
+data2022 <- data2022[data2022$Abundance.sponges > 0, ]
+data2022$Sponge.biomass <- as.numeric(gsub("[^0-9.]", "", data2022$Sponge.biomass))
+summarydata2022 <- summary(data2022)
+kable(summarydata2022, caption="summary data 2022")
+
+# cleaning up
+data2022$ln.biovolume <- log(data2022$Sponge.biomass/data2022$Abundance.sponges)
+data2022$log.n <- log(data2022$Abundance.sponges)
+data2022$row_id <- factor(1:nrow(data2022))
+
+
+#mean volume and sd per habitat
+sd_biomass <- aggregate(Sponge.biomass ~ Habitat, data2022, FUN = sd)
+mean_biomass <- aggregate(Sponge.biomass ~ Habitat, data2022, FUN = mean)
+biomass_mean_sd <- merge(mean_biomass,sd_biomass, by = "Habitat")
+colnames(biomass_mean_sd) <- c("Habitat", "Mean", "SD")
+kable(biomass_mean_sd,caption= "biomass sd and mean")
+
+
+#mean abundance and SD per habitat
+mean_abundance <- aggregate(Abundance.sponges~ Habitat, data2022, FUN = mean)
+sd_abundance <- aggregate(Abundance.sponges~ Habitat, data2022, FUN = sd)
+abundance_mean_sd <- merge(mean_abundance,sd_abundance, by = "Habitat")
+colnames(abundance_mean_sd) <- c("Habitat", "Mean", "SD")
+kable(abundance_mean_sd,caption= "Abundance sd and mean")
+
+# highest and lowest volumes and abundance
+
+#Min values and habitat they belong to 
+
+lowest_volume1 <- min(data2022$Sponge.biomass)
+lowest_volume_rows1 <- data2022[data2022$Sponge.biomass == lowest_volume1, ]
+kable(lowest_volume_rows1, caption= "lowest volume")
+
+highest_volume1 <- max(data2022$Sponge.biomass)
+highest_volume_rows1 <- data2022[data2022$Sponge.biomass == highest_volume1, ]
+kable(highest_volume_rows1,caption= "highest volume")
+
+lowest_abundance1<- min(data2022$Abundance.sponges)
+lowest_abundance_rows1 <- data2022[data2022$Abundance.sponges == lowest_abundance1, ]
+kable(lowest_abundance_rows1, caption= "lowest abundance")
+
+
+highest_abundance1<- max(data2022$Abundance.sponges)
+highest_abudance_rows1 <- data2022[data2022$Abundance.sponges == highest_abundance1, ]
+kable(highest_abudance_rows1,caption= "highest abundance")
+
+
+# model (GLM) 
+m10 <- glm(Abundance.sponges ~ Habitat*ln.biovolume, family=poisson,data = data2022)
+ahh <- overdisp_fun(m10) #overdispersed
+kable(ahh,caption= "m10 overdispersion model habitat and log biovolume with interaction")
+
+
+m10a <- glm.nb(Abundance.sponges ~ Habitat*ln.biovolume,data = data2022) # negative binomial distribution to account for overdispersion
+chisq <- drop1(m10a,test='Chisq') #homogeneity of slopes, no need for interaction term
+kable(chisq,caption="chisq test on habitat and volume interaction term on abundance")
+
+
+m10b <- glm.nb(Abundance.sponges ~ Habitat + ln.biovolume,data = data2022)
+ohhh<-overdisp_fun(m10b) # not overdispered
+kable(ohhh, caption="overdispersion habitat and volume affect on abundance, no interaction term ")
+ahhhhhh <- anova(m10b)
+kable(ahhhhhh,caption= "anova on m10b, volume and habitat effect on abundance of sponges")
+
+
+posthoc <- emmeans(m10b, "Habitat")
+pairwise <- pairs(posthoc)
+kable(pairwise,caption= "tukey posthoc test on m10b using emmeans package ")
+ci <- confint(pairwise)
+kable(ci,caption= "CI for tukey posthoc")
+
+
+#plotting
+pred <- predict(m10b)
+ggplot(data2022,aes(x=ln.biovolume,y=log(Abundance.sponges),color=Habitat)) + geom_point() +
+  geom_line(aes(y=pred)) +
+  xlab("Log(Biomass)") +
+  ylab("Log(Abundance)")
+
+plot(fitted.values(m10b),residuals(m10b,type='deviance'))
+lines(lowess(fitted.values(m10b),residuals(m10b,type='deviance')))
+
+#assumptions
+qqnorm(residuals(m10b,type='deviance'))
+qqline(residuals(m10b,type='deviance'))
+
+
+
+

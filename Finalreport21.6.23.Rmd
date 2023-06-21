@@ -1,0 +1,833 @@
+---
+title: "20.6.23"
+output:
+  pdf_document:
+    keep_tex: yes
+    keep_md: yes
+    pandoc_args: "--lua-filter=suppress-errors.lua"
+  html_document:
+    df_print: paged
+  word_document: default
+date: "2023-06-20"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(repos = "https://cloud.r-project.org")
+
+library(car)
+library(lme4)
+library(multcomp)
+library(ggplot2)
+install.packages("knitr")
+install.packages("kableExtra")
+library(MASS)
+library(emmeans)
+
+
+library(knitr)
+library(kableExtra)
+
+```
+
+```{r, message = FALSE,r, echo=FALSE}
+library(dplyr)
+```
+
+```{r, echo=FALSE}
+overdisp_fun <- function(model) {
+    rdf <- df.residual(model)
+    rp <- residuals(model,type="pearson")
+    Pearson.chisq <- sum(rp^2)
+    prat <- Pearson.chisq/rdf
+    pval <- pchisq(Pearson.chisq, df=rdf, lower.tail=FALSE)
+    c(chisq=Pearson.chisq,ratio=prat,rdf=rdf,p=pval)
+}
+
+```
+
+```{r, echo = FALSE, results = 'hide'}
+data2022 <- read.csv('Dataa/data2022.csv')
+data2022$row_id <- factor(1:nrow(data2022))
+data2022 <- data2022[data2022$Abundance.sponges > 0, ]
+data2022$Sponge.biomass <- as.numeric(gsub("[^0-9.]", "", data2022$Sponge.biomass))
+summarydata2022 <- summary(data2022)
+kable(summarydata2022, caption="Summary of 2022 dataset")
+
+data2022$ln.biovolume <- log(data2022$Sponge.biomass/data2022$Abundance.sponges)
+data2022$log.n <- log(data2022$Abundance.sponges)
+data2022$row_id <- factor(1:nrow(data2022))
+
+sd_biomass <- aggregate(Sponge.biomass ~ Habitat, data2022, FUN = sd)
+mean_biomass <- aggregate(Sponge.biomass ~ Habitat, data2022, FUN = mean)
+biomass_mean_sd <- merge(mean_biomass,sd_biomass, by = "Habitat")
+colnames(biomass_mean_sd) <- c("Habitat", "Mean", "SD")
+kable(biomass_mean_sd,caption= "Biomass mean and SD for each habitat")
+
+mean_abundance <- aggregate(Abundance.sponges~ Habitat, data2022, FUN = mean)
+sd_abundance <- aggregate(Abundance.sponges~ Habitat, data2022, FUN = sd)
+abundance_mean_sd <- merge(mean_abundance,sd_abundance, by = "Habitat")
+colnames(abundance_mean_sd) <- c("Habitat", "Mean", "SD")
+kable(abundance_mean_sd,caption= "Mean abundance and SD per habitat")
+#H1
+# model (GLM) 
+m10 <- glm(Abundance.sponges ~ Habitat*ln.biovolume, family=poisson,data = data2022)
+m10a <- glm.nb(Abundance.sponges ~ Habitat*ln.biovolume,data = data2022) # negative binomial distribution to account for overdispersion
+m10b <- glm.nb(Abundance.sponges ~ Habitat + ln.biovolume,data = data2022)
+ohhh<-overdisp_fun(m10b) # not overdispered
+ahhhhhh <- anova(m10b)
+posthoc <- emmeans(m10b, "Habitat")
+pairwise <- pairs(posthoc)
+kable(pairwise,caption= "Tukey posthoc test on ANOVA ")
+ci <- confint(pairwise)
+#H2
+
+#H3: effect of date on abundance
+
+prey_ab_vol <- read.csv('Dataa/prey_ab_vol.csv')
+prey_ab_vol$n <- prey_ab_vol$N.H..perlevis
+prey_ab_vol$row_id <- factor(1:nrow(prey_ab_vol))
+prey_ab_vol$Date <- factor(prey_ab_vol$Date)
+prey_ab_vol <- prey_ab_vol[, colSums(is.na(prey_ab_vol)) == 0]
+
+#cleaning up names 
+# Rename specific columns by name
+old_names <- c("N.quadrat", "N.H..perlevis","Volumen.Hym..mL."," Date","row_id")  # Example: column names to be renamed
+new_names <- c("Quadrant number ", "Abundance (n)","Volume (mL)","Date","row_id")  # Example: new names for the columns
+
+for (i in 1:length(old_names)) {
+  colnames(prey_ab_vol)[colnames(prey_ab_vol) == old_names[i]] <- new_names[i]
+}
+
+
+
+# Summary staitistcs for dataset 1
+summaryprey_ab_vol <- summary(prey_ab_vol)
+summary_table1 <- as.data.frame(summaryprey_ab_vol)
+filtered_table1 <- summary_table1[complete.cases(summary_table1), ]
+kable(filtered_table1, align = "c", caption = "Summary of 2023 dataset")
+
+
+# SD Table
+sd_abundance <- sd(prey_ab_vol$`Abundance (n)`)
+sd_volume <- sd(prey_ab_vol$`Volume (mL)`)
+
+sd_table2 <- data.frame(
+  Metric = c("Abundance", "Volume"),
+  StandardDeviation = c(sd_abundance, sd_volume)
+)
+kable(sd_table2, align = "c", caption = "Standard deviation of Abundance (n) and Volume (mL) for 2023 dataset")
+
+# mean for each date
+
+
+meansabundance <- data.frame(
+  Date = c("Apr21", "Jun20", "Jun21", "Nov20"),
+  `Abundance (n)[,"Mean"]` = c(16.86667, 23.77273, 30.09524, 20.46154),
+  `Abundance (n)[,"SD"]` = c(11.51314, 12.77621, 23.17521, 13.28292)
+)
+
+kable(meansabundance, align = "c", caption = "Mean abundance and standard deviation for dates")
+
+
+meansvolume <- data.frame(
+  Date = c("Apr21", "Jun20", "Jun21", "Nov20"),
+  `Volume (mL)[,"mean"]` = c(42.28667, 269.65000, 84.24762, 14.60000),
+  `Volume (mL)[,"SD"]` = c(22.81816, 164.28984, 60.01188, 10.97490)
+)
+
+
+#first model with interaction term, overdispersed (n ~ ln.biovolume * Date + (1 | row_id)
+prey_ab_vol$ln.biovolume <- log(prey_ab_vol$`Volume (mL)`/prey_ab_vol$`Abundance (n)`)
+m1 <- glm(`Abundance (n)` ~ ln.biovolume*Date,family=poisson,data=prey_ab_vol)
+
+#overdispersion function
+table6 <-(overdisp_fun(m1))
+m2 <- glmer(n ~ ln.biovolume*Date +(1|row_id),family=poisson,data=prey_ab_vol)
+my <- m2
+#m2: n ~ ln.biovolume * Date + (1 | row_id)
+summary_tablea <- data.frame(
+  `Fixed effects` = c(
+    "(Intercept)", "ln.biovolume", "DateJun20", "DateJun21", "DateNov20", "ln.biovolume:DateJun20",
+    "ln.biovolume:DateJun21", "ln.biovolume:DateNov20"
+  ),
+  Estimate = c(3.1512, -0.5586, 0.7878, 0.9128, -0.4735, 0.1806, -0.2845, 0.2049),
+  `Std. Error` = c(0.2868, 0.2564, 0.6705, 0.5771, 0.3547, 0.3570, 0.5233, 0.3746),
+  `z value` = c(10.988, -2.178, 1.175, 1.582, -1.335, 0.506, -0.544, 0.547),
+  `Pr(>|z|)` = c("<2e-16 ***", "0.0294 *", "0.2400", "0.1137", "0.1819", "0.61302", "0.5867", "0.5843")
+)
+kable(summary_tablea, align = "c", caption = "Summary of Model 2:GLM with the predictor variables log-biomass and date with an interaction term between them and a random grouping intercept")
+
+
+m2 <- glmer(n ~ ln.biovolume*Date +(1|row_id),family=poisson,data=prey_ab_vol)
+
+table7 <-(overdisp_fun(m2))
+
+
+table6.1 <-(drop1(m2,test='Chisq'))
+
+
+m3 <- glmer(`Abundance (n)` ~ ln.biovolume + Date +(1|row_id),family=poisson,data=prey_ab_vol)
+
+```
+<div align="center"><font size= 5>**Abstract**</div></font>
+
+Sponges play a crucial role in marine ecosystems, contributing to nutrient cycling, water filtration, and habitat creation. Recent studies have also shown sponges may be a key player in the marine silica cycle. Therefore, understanding their population dynamics is crucial for unravelling ecological processes and future biodiversity studies.  In this report, statistical analysis was done to analyse the population dynamics of siliceous sponge species in the Bay of Brest, France. This analysis revealed intriguing patterns and significant findings that elucidate the factors influencing sponge spatial distribution and growth. Firstly, substantial variation in siliceous sponge abundance and biomass was observed over six benthic habitats. The contrasting environmental conditions and availability of resources among habitats likely play a pivotal role in driving these variations. Additionally, the influence of predation on the abundance and biomass of the siliceous sponge $Hymeniacidon pelvis$ was investigated by comparing biomass between months corresponding to predation and recovery periods. This analysis revealed a significant effect of the month on biomass aligning with before predation, after predation and recovery periods. This finding suggests a close interplay between prey-predator dynamics and sponge populations. In addition, we investigated the potential correlations between the biomass of H. perlevis and key environmental factors, including pH, temperature, and salinity. Surprisingly, this analysis indicated no significant correlation, suggesting that other factors may govern the distribution and abundance of the predator. Overall, the comprehensive statistical analysis done in this report provides valuable insights into the population dynamics of siliceous sponges. These findings contribute to a deeper understanding of marine ecosystems and lay the groundwork for further ecological studies.
+
+<div align="center"><font size= 5>**1.Introduction**</div></font>
+
+Sponges play a crucial role in marine ecosystems, contributing to nutrient cycling, water filtration, and habitat creation. Despite this importance, it is unclear the influencing factors of distribution, abundance, and growth. It is, therefore, crucial to understand their population dynamics including annual variation, the effect of abiotic (temperature, pH, salinity) and biotic factors (predation, etc) and habitat suitability. This report aims to enhance the knowledge of $Hymeniacidon$ $perlevis$ ($H.perlevis$) and other siliceous sponges in the Bay of Brest, France for future biodiversity assessments, conservation planning and ecological surveys.
+
+In this report, five hypotheses were tested to gain a deeper understanding of the population dynamics of $H. perlevis$. Firstly, the differences in abundance and biomass were analysed over six benthic habitats in the Bay. By analysing this metric, more information can be deduced about the suitability of the habitats for siliceous sponges. Furthermore, predation is a biotic factor that exerts pressure on sponge populations, leading to changes in biomass. Therefore predator-prey relationships should also be considered when analysing changes in sponge biomass over periods. In the maerl beds of the bay, a spongivorous nudibranch $Doris$ $verrucosa$ ($D.verrucosa$) is present from mid-June to mid-November (1). The authors of the metadata used in this report studied the biomass of $H.perlevis$ for four months, for the following reasons: June 2020 represents the population before predation, November 2020 after predation and April and June 2021 represent the sponge population recovery. It is expected that there will be a significant difference between the before and after predation periods, as well as the recovery periods.
+
+$H.pelervis$ biomass was also examined concerning the abiotic factors of temperature, pH, and salinity. Previous empirical studies on the species showed that the species experience a decline in biomass during colder months (2). Additionally, a substantial decrease in the pH of seawater indicates acidification, which disrupts the physiological processes of sponges and leads to reduced growth rates and a subsequent decrease in biomass (3). Salinity is also an important parameter for studying marine species. Studies on microalgae indicate that higher salinities may influence biomass. Accordingly, this parameter was also examined.
+
+<div align="center"><font size= 5>**2. Methods **</div></font>
+
+Two studies and their corresponding metadata have been used in this report for assessing the population dynamics of H.perlevis, metadata from ‘ Sponge contribution to the silicon cycle of a diatom-rich shallow bay’ done by López‐Acosta (2022 ) and ‘Nudibranch predation boosts sponge silicon cycling’ also by López-Acosta (2023).
+
+ All statistical analyses were performed using the software package R version 4.2.3 (R Development Core Team 2023) (6). The packages used in R were as follows lme4, car, lme4, multicomp, ggplot2, knitr, kableExtra, MASS, and emmeans.
+
+ <div align="center"><font size= 5>**2.1 Study 1: Habitat study (2022 dataset) **</div></font>
+ <div align="center"><font size= 5>**2.1.1 Data collection**</div></font>
+
+The study by López‐Acosta (2022 ) looked at a  total of 45 siliceous sponge species living in the Bay and their contribution to the silicon budget of the Bay of Brest coastal system. H.perlevis is one of the sponges accounted for in this study, therefore, this metadata was analysed. In this study, the total abundance (N sponge $m^{-2}$) and sponge biomass (mL sponge $m^{-2}$) of siliceous sponges was analysed per random quadrant (1 x 1 m), in six benthic habitats (López‐Acosta et al., 2022).
+ 
+The habitats were as follows:Rocky Intertidal (~RI~), Rocky Subtidal (~RS~), Shallow Mud (~SM~), maerl beds (~MB~), heterogeneous Sediments (~HS~) and circalittoral coarse sediment (~CS~) (refer to figure 1). Each siliceous sponge found in a quadrant's biomass was measured according to a method by López‐Acosta et at.,2022. This report assesses whether there is a difference between the siliceous sponge’s biomass-corrected abundance and biomass in the six habitats in the bay.
+
+
+```{r, echo=FALSE, out.width='75%',align="c"}
+knitr::include_graphics("/Users/Natalie/Desktop/ah.pdf")
+```
+
+<div align = "center"><font size= 1.5>*Figure 1: The six habitats in the study. (b) rocky intertidal, (c) rocky subital, (d) maerl beds, (e) shallow muds, (f) heterogenous sediments and (g) circalittoral coarse sediments.*</div></font>
+
+
+<div align="center"><font size= 5>**2.1.2 Statistical analysis  **</div></font>
+
+<div align="center"><font size= 5>**2.1.2.1	The Biomass-corrected abundance of sponges per habitat (Hypothesis 1)**</div></font>
+
+
+Independent Variable ($IV$): Habitat (RI, RS, SM, M, HS, CS) and biomass (mL sponge $m^{-2}$)
+Dependent ($D$): Abundance (N sponge $m^{-2}$)
+
+An Analysis of Covariance (ANCOVA) on a generalised linear model (GLM) was employed to examine the relationship between the biomass-corrected abundance of the sponges and the habitat. A homogeneity of slopes test on the model determined if an interaction between habitat and logarithmic biomass significantly affected the response variable, abundance. In cases where the interaction was not significant, Analysis of variance (ANOVA) was performed on the GLM model.A posthoc Tukey’s test was performed on the model where significant results were observed.
+
+For this analysis, the following assumptions were made. It was assumed that no two observations in the dataset were related to each other. It was assumed that the residuals of the models followed a normal distribution (refer to figure 2). An examination of the scatter plot of deviance (refer to figure 3) residuals against the fitted values revealed a pattern suggestive of homoscedasticity. For the GLM model, the response variable is assumed to follow a negative binomial distribution, accounting for overdispersion in the model (X² = 152.62, rdf = 135, $p$ = 0.14) (refer to table 1).
+
+```{r echo=FALSE}
+m10b <- glm.nb(Abundance.sponges ~ Habitat + ln.biovolume,data = data2022)
+bepop<- qqnorm(residuals(m10b,type='deviance'))
+bepop <-qqline(residuals(m10b,type='deviance'))
+```
+
+<div align = "center"><font size= 1.5>*Figure 2:Q-Q plot of the distribution of the deviance residuals in the best-fitted model used for hypothesis 1 *</div></font>
+
+
+```{r echo=FALSE}
+plot(fitted.values(m10b),residuals(m10b,type='deviance'))
+lines(lowess(fitted.values(m10b),residuals(m10b,type='deviance')))
+```
+<div align = "center"><font size= 1.5>*Figure 3: Scatterplot of the predicted values versus deviance residuals plot of the best-fitted model for hypothesis 1: The negative bionmial GLM with the predictor variables habitat and log biomass on abundance (hypothesis 1)*</div></font>
+
+```{r echo=FALSE}
+m10b <- glm.nb(Abundance.sponges ~ Habitat + ln.biovolume,data = data2022)
+ohhh<-overdisp_fun(m10b) # not overdispered
+kable(ohhh, caption = "Overdispersion of Negative Binomial Generalised linear Model (GLM), with an  the predictor variables Habitat and log-biomass on the response variable abundance (hypothesis 1)")
+```
+
+<div align="center"><font size= 5>**2.1.2.2. Biomass of each sponge individual per habitat (Hypothesis 2)**</div></font>
+
+IV: Habitat (RI, RS, SM, M, HS, CS)
+D: log-transformed biomass (mL sponge $m^{-2}$)
+
+An ANOVA model was used to examine the relationship between the average biomass of the sponges and habitat. Before the interpretation of the results from the ANOVA and posthoc Tukey's test the following assumptions were made. No two observations in the dataset are related to each other or affect one another in any way. The assumption of homogeneity of variance was assessed using Levene’s test.This test indicated that the assumption of homogeneity of variance was met ($F_{5,136}$ = 0.917, $p$= 0.472) (refer to table 2).The residuals of the data followed a normal distribution, meeting the assumption of normality (refer to figure 4).
+
+```{r, echo=FALSE}
+m10k <- aov(ln.biovolume ~ Habitat, data = data2022)
+residualsm3 <- residuals(m10k)
+qqnormm3 <- qqnorm(residualsm3)
+qqnormm3 <- qqline(residualsm3)
+```
+<div align = "center"><font size= 1.5>*Figure 4:Q-Q plot of the distribution of the residuals in the linear model for hypothesis 2 *</div></font>
+```{r, echo=FALSE}
+library(car)
+booop<-leveneTest(m10k)
+kable(booop,caption="Levenes test on best-fitted linear model between log biomass and habitat in hypothesis 2)")
+```
+
+<div align="center"><font size= 5>**2.2	Study 2: Predation study on H.perlevis  (2022)**</div></font>
+
+<div align="center"><font size= 5>**2.2.1 Data collection**</div></font>
+
+ The authors (López-Acosta et al., 2023) measured the abundance and biomass of H. perlevis in randomly assigned quadrants (1 x 1 m) in the Bay over four months using the same methods as the 2022 study. Only one habitat was selected in this study, the Maerl beds. The metadata of this study was used to test the hypothesis that abundance and biomass are influenced by month according to predation periods by $D.verrucosa$ During this part of the study, biomass was also considered as a factor affecting sponge abundance. The second part of this research question looked at the effect of the data on the total volume of H.perlevis per quadrant. Lastly, the effect of temperature, pH and salinity (from SOMLIT) on the biomass of H.perlevis per individual was assessed
+ 
+<div align="center"><font size= 5>**2.2.2	Statistical analysis **</div></font>
+
+<div align="center"><font size= 5>**2.2.2.1	The effect of date on abundance of H. perlevis (Hypothesis 3)**</div></font>
+
+$IV$: Date ((June 2020 (Jun20), November 2020 (Nov20), April 2021 (Apr21), Jun 2021 (Jun21)), Log-transformed biomass (mL)
+$D$: Abundance (N) 
+
+The effect of the date on the biomass-corrected abundance of H.perlevis was analysed using a general linear mixed effect model (GLMM). A homogeneity of slopes test was used when appropriate to test if an interaction term was needed in the model. Tukey’s posthoc test was used when significant differences in data were observed in the models.
+
+Before the interpretation of results from the generalised linear mixed effect model (GLMM) and posthoc Tukey’s test, the assumptions of these tests were assessed. No two observations in the dataset are related to each other or affect one another in any way. The dependent variable follows a Poisson distribution, with Pearson residuals normally distributed (refer to figure 5). The variances of the Pearson residuals are homogeneous as indicated by Levene’s test ($F_{3,67}$ = 0.832, $p$ =0.480) (refer to table 4). In this analysis, observational level random effects accounted for overdispersion (X²= 10.478, rdf= 65, ratio: 0.161, $p$= 1.00) (refer to table 3). The random effects follow a normal distribution (refer to figure 6).
+
+
+```{r, echo=FALSE}
+m3 <- glmer(`Abundance (n)` ~ ln.biovolume + Date +(1|row_id),family=poisson,data=prey_ab_vol)
+me <- (overdisp_fun(m3))
+kable(me,caption= "Overdispersion test for best-fitted model in hypothesis 3")
+levene_results <- data.frame(
+  "-" = c("group", ""),
+  Df = c("3", "67"),
+  `F value` = c(0.8323, NA),
+  `Pr(>F)` = c(0.4808, NA)
+)
+
+kable(levene_results,caption= "Levenes test on pearson residuals for best-fitted model in hypothesis 3")
+```
+
+```{r, echo=FALSE}
+#residuals
+residuals <- resid(m3, type = "pearson")
+qqnorm(residuals)
+qqline(residuals)
+```
+<div align = "center"><font size= 1.5>*Figure 5:Q-Q plot of the distribution of pearson residuals in the linear model in hypothesis 3 *</div></font>
+
+```{r, echo=FALSE}
+#random effects
+qqnorm(ranef(m3)$row_id[,1]); qqline(ranef(m3)$row_id[,1])
+```
+<div align = "center"><font size= 1.5>*Figure 6:Q-Q plot of the random effect in the linear model in hypothesis 3 *</div></font>
+
+<div align="center"><font size= 5>**2.2.2.2	The effect of the date on the biomass of H. perlevis (hypothesis 4)**</div></font>
+
+$IV$: Date (( June 2020 (Jun20), November 2020 (Nov20), April 2021 (Apr21), Jun 2021 (Jun21)),
+$D$: Biomass (mL)
+
+The effect of the date on the total biomass (mL) of H.Perlevis per quadrant was assessed using one-way ANOVA. When significant differences in the biomass of the sponges were observed between dates, a post hoc Tukey’s Honestly Significant Difference (HSD) test was performed. The assumptions of the ANOVA and Tukey tests were as follows. No two observations in the dataset are related to each other or affect one another in any way. The assumption of homogeneity of variance was assessed using Levene’s test. This test indicated that the assumption was met ($F_{3,67}$= 0.450, $p$= 0.718) (refer to table 6). The residuals of the tests followed a normal distribution, meeting the assumption of normality (refer to figure 7). There was no evidence of overdispersion for the final model (X²= 35.762, rdf=67, ratio: 0.533, $p$= 1.00) (refer to table 5).
+
+```{r, echo=FALSE}
+prey_ab_vol$log.v <-log(prey_ab_vol$`Volume (mL)`)
+m7a <- aov(log.v~Date,data=prey_ab_vol)
+beep<-overdisp_fun(m7a)
+kable(beep,caption="Overdispersion function for best-fitted model for hypothesis 4")
+
+
+levene_results1 <- leveneTest(m7a)
+kable(levene_results1,caption= "Levene results on the best-fitted linear model in hypothesis 4")
+
+residualsm7a <- residuals(m7a)
+qqnormm7a <- qqnorm(residualsm7a)
+qqnormm7a <- qqline(residualsm7a)
+```
+<div align = "center"><font size= 1.5>*Figure 7:Q-Q plot of the residuals in the best-fitted linear model for hypothesis 4*</div></font>
+
+
+<div align="center"><font size= 5>**2.2.2.3	The effect of pH, temperature and salinity on the biomass of H.perlevis (hypothesis 5)**</div></font>
+
+$IV$: Averaged pH, temperature (°C) and salinity (PSU) values for the dates included in this study 
+$D$: Biomass (mL)
+
+Pearson’s product-moment correlation coefficient was employed to assess the strength and linear relationship between the average individual corrected volume (mL) of H.perlevis for the months and the same month's average pH, salinity and temperatures. The volume of each sponge was calculated by dividing the total volume per quadrant by the number of individuals. This analysis assumed that all observations in the dataset were independent, that the relationship between date and volume of H.perlevis is linear and the variance of sponge biomass is consistent across varying levels of pH, temperature and salinity.
+
+<div align="center"><font size= 5>**3.Results **</div></font>
+<div align="center"><font size= 5>**3.1 Biomass-corrected abundance of sponges per habitat**</div></font>
+
+The highest mean (± SD) abundance (N sponge m-2) of siliceous sponges was recorded in the Maerl beds (24.55 ± 26.17). The lowest mean abundance was recorded in the shallow mud habitat (1.60 ± 1.34) (refer to table 9).ANCOVA analysis on a GLM between biomass-corrected abundance and the habits indicated overdispersion of the model (refer to table 10). To deal with overdispersion, a negative binomial distribution was fitted for the response variable abundance. A homogeneity of slopes test was conducted to assess the interaction term between habitat and log transformed biomass (refer to table 11).This suggests that the relationship between habitat and abundance does not differ significantly across different levels of log biomass. Thus, a simpler GLM model was employed with both the predictor's biomass and habitat and their independent contribution to the prediction of abundance, this model was not overdispersed (refer to table 1).
+
+ANOVA on the GLM denoted a significant effect of habitat ($p$ < 0.001) and biomass ($p$ < 0.05) on abundance (refer to table 12) Thus, a post hoc Tukey test (95% CL) was used to assess which habitats the abundance differed significantly between (refer to table 13 and 14). Significant differences were observed ($p$<0.05) between CS (p= <0.001 [-2.56,-1.15]), HS (p=<0.001 [-1.90,-0.62]), RI (p <0.001, [1.13,2.49], SM (p= <0.001 [0.99,3.98]) and MB. Significant differences were also observed between CS (p= <0.001 [-2.50,-0.87]), HS (p= <0.001 [-1.76,-0.42]), RI (p= <0.001 [-2.34,-0.93]), SM (p= <0.001 [0.83,3.79]) and RS. Figure 8 shows the variation among habitats for the abundance-biomass relationship. The largest difference between habitats for abundance was between MB and SM, corresponding to Tukey’s test estimate (2.48).
+
+```{r, echo=FALSE}
+
+data2022 <- read.csv('Dataa/data2022.csv')
+data2022$row_id <- factor(1:nrow(data2022))
+data2022 <- data2022[data2022$Abundance.sponges > 0, ]
+data2022$Sponge.biomass <- as.numeric(gsub("[^0-9.]", "", data2022$Sponge.biomass))
+summarydata2022 <- summary(data2022)
+kable(summarydata2022, caption="Summary of 2022 dataset")
+
+data2022$ln.biovolume <- log(data2022$Sponge.biomass/data2022$Abundance.sponges)
+data2022$log.n <- log(data2022$Abundance.sponges)
+data2022$row_id <- factor(1:nrow(data2022))
+
+sd_biomass <- aggregate(Sponge.biomass ~ Habitat, data2022, FUN = sd)
+mean_biomass <- aggregate(Sponge.biomass ~ Habitat, data2022, FUN = mean)
+biomass_mean_sd <- merge(mean_biomass,sd_biomass, by = "Habitat")
+colnames(biomass_mean_sd) <- c("Habitat", "Mean", "SD")
+kable(biomass_mean_sd,caption= "Biomass mean and SD for each habitat")
+
+mean_abundance <- aggregate(Abundance.sponges~ Habitat, data2022, FUN = mean)
+sd_abundance <- aggregate(Abundance.sponges~ Habitat, data2022, FUN = sd)
+abundance_mean_sd <- merge(mean_abundance,sd_abundance, by = "Habitat")
+colnames(abundance_mean_sd) <- c("Habitat", "Mean", "SD")
+kable(abundance_mean_sd,caption= "Mean abundance and SD per habitat")
+
+#H1
+# model (GLM) 
+m10 <- glm(Abundance.sponges ~ Habitat*ln.biovolume, family=poisson,data = data2022)
+ahh <- overdisp_fun(m10) #overdispersed
+# Generate the kable table with captions
+kable(ahh, caption = "Overdispersion test of Generalised linear Model (GLM), with an interaction term between the predictor variables Habitat and log-biomass on the response variable abundance. Overdispersion analysis of this model (X² = 1415.69, rdf = 130, $p$ = 0.00) indicates no evidence ($p$ < 0.05) to reject the null hypothesis that the model is overdispersed")
+
+m10a <- glm.nb(Abundance.sponges ~ Habitat*ln.biovolume,data = data2022) # negative binomial distribution to account for overdispersion
+chisq <- drop1(m10a,test='Chisq') #homogeneity of slopes, no need for interaction term
+kable(chisq, caption = "Homogeneity of slopes test on the interaction between preditor variables habitat and log-biomass on the response variable abundance.The likelihood ratio test (LRT) statistic was X² = 10.52 $p$= 0.062, df=5. There was no evidence ($p$ <0.05) in this test to reject the null hypothesis, that the slopes of the regression lines for the log-transformed biomass and habitat are equal. In other words,there is no evidence there is an effect of the interaction between habitat and biomass in the model")
+
+m10b <- glm.nb(Abundance.sponges ~ Habitat + ln.biovolume,data = data2022)
+ohhh<-overdisp_fun(m10b) # not overdispered
+
+ahhhhhh <- anova(m10b)
+kable(ahhhhhh, caption= "ANOVA on the best-fitted GLM model Negative Binomial")
+
+
+posthoc <- emmeans(m10b, "Habitat")
+pairwise <- pairs(posthoc)
+kable(pairwise,caption= "Tukey posthoc test on ANOVA ")
+ci <- confint(pairwise)
+kable(ci,caption= "CI for Tukey posthoc test")
+```
+
+
+```{r echo=FALSE}
+#plotting
+pred <- predict(m10b)
+ggplot(data2022,aes(x=ln.biovolume,y=log(Abundance.sponges),color=Habitat)) + geom_point() +
+  geom_line(aes(y=pred)) +
+  xlab("Log(Biomass)") +
+  ylab("Log(Abundance)")
+```
+<div align = "center"><font size= 1.5>*Figure 8: Plot the effect of log biomass and Habitat on the abundance of siliceous sponges in the Bay of Brest, France. Biomass is in (mL sponge $m^{-2}$) and Abundance is in (N sponge $m^{-2}$)  *</div></font>
+
+
+<div align="center"><font size= 5>**3.2 Biomass of each sponge individual per habitat**</div></font>
+
+
+The highest mean (± SD) biomass (mL sponge $m^{-2}$) of siliceous sponges was recorded in the Rocky subtidal (3779.63 ± 132.47). The lowest mean biomass was recorded in the circalittoral coarse sediments habitat (31.35 ± 56.55) (refer to table 15). An ANOVA model was used to examine the relationship between the logarithm average biomass of the sponges and habitat. The ANOVA model revealed a significant effect of the variable habitat on the biomass (F (5,136) = 20.4, p <0.001) (refer to table 16).To determine significant differences in biomass between habitat levels, a posthoc Tukey HSD test (95% CI) was conducted ($p$<0.05) (refer to table 17). Significant differences were observed between the habitats HS (p <0.05 [0.39,2.61]), RI (p <0.05 [0.37,2,61]), RS (p <0.001 [1.14,3.24]), SM (p <0.05 [0.73,4.36]) and CS Significant differences were also reported between RS (p <0.001 [0.69,2.42]) and SM (p = <<0.05 [0.19,3.62]) and MB. Figure 9 shows the relationship between biomass and the different habitats. A large difference can be seen between CS and all other habitats besides MB, corresponding to the Tukey results.
+
+
+```{r, echo=FALSE}
+#h2
+
+mean_abundance <- aggregate(Sponge.biomass~ Habitat, data2022, FUN = mean)
+  sd_abundance <- aggregate(Sponge.biomass~ Habitat, data2022, FUN = sd)
+volume_mean_sd <- merge(mean_abundance,sd_abundance, by = "Habitat")
+colnames(volume_mean_sd) <- c("Habitat", "Mean", "SD")
+kable(volume_mean_sd,caption= "Mean biomass and SD per habitat")
+
+
+m10k <- aov(ln.biovolume ~ Habitat, data = data2022)
+boop <-summary(m10k) 
+
+# Create a data frame with the information
+boop <- data.frame(
+  Source = c("Habitat", "Residuals"),
+  Df = c(5, 136),
+  Sum_Sq = c(184.1, 245.4),
+  Mean_Sq = c(36.82, 1.80),
+  F_value = c(20.4, NA),
+  Pr_F = c("3.71e-15 ***", NA)
+)
+
+kable(boop,caption="ANOVA on linear model with the predictor variable habitat and the response variable log biomass ")
+
+
+# Create the table
+boo <- data.frame(
+  Comparison = c("Heterog seds-Circ.coarse seds", "Maerl-Circ.coarse seds", "Rocky intertidal-Circ.coarse seds", 
+                 "Rocky subtidal-Circ.coarse seds", "Shallow muds-Circ.coarse seds", "Maerl-Heterog seds",
+                 "Rocky intertidal-Heterog seds", "Rocky subtidal-Heterog seds", "Shallow muds-Heterog seds",
+                 "Rocky intertidal-Maerl", "Rocky subtidal-Maerl", "Shallow muds-Maerl",
+                 "Rocky subtidal-Rocky intertidal", "Shallow muds-Rocky intertidal", "Shallow muds-Rocky subtidal"
+  ),
+  diff = c(1.5005453, 0.6380823, 1.4872614, 2.1890594, 2.5456745, -0.8624630, -0.0132839, 0.6885141,
+           1.0451292, 0.8491791, 1.5509771, 1.9075922, 0.7017980, 1.0584131, 0.3566151
+  ),
+  lwr = c(0.38960855, -0.36990890, 0.36570415, 1.13500047, 0.72730831, -1.79655984, -1.06892651, -0.29511738,
+          -0.73333819, -0.09752418, 0.68530011, 0.19154674, -0.29381295, -0.72670778, -1.38688881
+  ),
+  upr = c(2.61148206, 1.64607350, 2.60881870, 3.24311829, 4.36404069, 0.07163383, 1.04235875, 1.67214553,
+          2.82359658, 1.79588242, 2.41665404, 3.62363766, 1.69740886, 2.84353394, 2.10011905
+  ),
+  p_adj = c(0.0020172, 0.4501734, 0.0026023, 0.0000002, 0.0011977, 0.0883057, 1.0000000, 0.3345847,
+            0.5349857, 0.1060177, 0.0000115, 0.0199472, 0.3267299, 0.5250267, 0.9914730
+  )
+)
+
+kable(boo,caption="Tukey HSD results on ANOVA")
+
+
+#plot
+dog <- lm(ln.biovolume~log.n + Habitat,data2022)
+pred <- predict(dog)
+ggplot(data2022,aes(x=log.n,y=ln.biovolume,color=Habitat)) + geom_point() +
+  geom_line(aes(y=pred)) +
+  xlab("Log(abundance)") +
+  ylab("Log(biomass)")
+```
+<div align = "center"><font size= 1.5>*Figure 9: Plot the effect of abundance and Habitat on the log biomass of siliceous sponges in the Bay of Brest, France. Biomass is in (mL sponge $m^{-2}$) and Abundance is in (N sponge $m^{-2}$)  *</div></font>
+
+
+
+<div align="center"><font size= 5>**3.3	The effect of date on abundance of H. perlevis**</div></font>
+
+The mean abundance of H.perlevis over the months was 23.58 ± 16.83 individuals (N) (refer to table 18 and 19). The date with the highest mean abundance of H.perlevis (30.10 ± 23.17  individuals ) was June 2021. The date with the lowest mean abundance was April 2021 (16.87 ± 11.51 individuals) (refer to table 20). 
+
+ANOVA on a Generalised linear mixed model (GLMM) (refer to table 23 and 24) with a random grouping intercept was used to examine the relationship between size-corrected abundance and volume.Previous GLM models without the random grouping intercept were overdispersed (refer to table 22).A homogeneity of slopes test indicated that the slopes of the relationship between log-biomass and date were similar for all levels of abundance (X²= 1.0911 p= 0.7792, df=1) (refer to table 25).  Assuming a common slope of -0.4722 (refer to table 26) for all dates, the intercept differed significantly for the predictors data and volume. Tukeys posthoc test (95% CI) showed the abundance differed significantly between the dates: June 2020 – April 2021 (Pr= <0.00146 [0.34,1.85]), June2021-April2021 (Pr= 0.02585 [0.052,1.15]), November2020-June2020 (Pr= 0.0039 [2.68, -0.38]) and November2020-June2021 (Pr= 0.0033 [1.82, -0.27]) (refer to table 28 and 29). The relationship between the dates and abundance has been visualised in figure 10.
+
+
+```{r, echo=FALSE}
+#H3: effect of date on abundance
+
+prey_ab_vol <- read.csv('Dataa/prey_ab_vol.csv')
+prey_ab_vol$n <- prey_ab_vol$N.H..perlevis
+prey_ab_vol$row_id <- factor(1:nrow(prey_ab_vol))
+prey_ab_vol$Date <- factor(prey_ab_vol$Date)
+prey_ab_vol <- prey_ab_vol[, colSums(is.na(prey_ab_vol)) == 0]
+
+#cleaning up names 
+# Rename specific columns by name
+old_names <- c("N.quadrat", "N.H..perlevis","Volumen.Hym..mL."," Date","row_id")  # Example: column names to be renamed
+new_names <- c("Quadrant number ", "Abundance (n)","Volume (mL)","Date","row_id")  # Example: new names for the columns
+
+for (i in 1:length(old_names)) {
+  colnames(prey_ab_vol)[colnames(prey_ab_vol) == old_names[i]] <- new_names[i]
+}
+
+
+#summary statistics 
+
+# Summary staitistcs for dataset 1
+summaryprey_ab_vol <- summary(prey_ab_vol)
+summary_table1 <- as.data.frame(summaryprey_ab_vol)
+filtered_table1 <- summary_table1[complete.cases(summary_table1), ]
+kable(filtered_table1, align = "c", caption = "Summary of 2023 dataset")
+
+
+# SD Table
+sd_abundance <- sd(prey_ab_vol$`Abundance (n)`)
+sd_volume <- sd(prey_ab_vol$`Volume (mL)`)
+
+sd_table2 <- data.frame(
+  Metric = c("Abundance", "Volume"),
+  StandardDeviation = c(sd_abundance, sd_volume)
+)
+kable(sd_table2, align = "c", caption = "Standard deviation of Abundance (n) and Volume (mL) for 2023 dataset")
+
+# mean for each date
+
+
+meansabundance <- data.frame(
+  Date = c("Apr21", "Jun20", "Jun21", "Nov20"),
+  `Abundance (n)[,"Mean"]` = c(16.86667, 23.77273, 30.09524, 20.46154),
+  `Abundance (n)[,"SD"]` = c(11.51314, 12.77621, 23.17521, 13.28292)
+)
+
+kable(meansabundance, align = "c", caption = "Mean abundance and standard deviation for dates")
+
+
+meansvolume <- data.frame(
+  Date = c("Apr21", "Jun20", "Jun21", "Nov20"),
+  `Volume (mL)[,"mean"]` = c(42.28667, 269.65000, 84.24762, 14.60000),
+  `Volume (mL)[,"SD"]` = c(22.81816, 164.28984, 60.01188, 10.97490)
+)
+
+kable(meansvolume, align = "c", caption = "Mean volume and standard deviation")
+
+
+
+# GLM models
+
+#first model with interaction term, overdispersed (n ~ ln.biovolume * Date + (1 | row_id)
+prey_ab_vol$ln.biovolume <- log(prey_ab_vol$`Volume (mL)`/prey_ab_vol$`Abundance (n)`)
+m1 <- glm(`Abundance (n)` ~ ln.biovolume*Date,family=poisson,data=prey_ab_vol)
+
+#overdispersion function
+table6 <-(overdisp_fun(m1))
+kable(table6, align = "c", caption = "Overdispersion of Generalised linear Model 1: with an interaction term between the predictor variables date and log-biomass on the response variable abundance. Overdispersion analysis of this model (X² = 616.73, rdf = 63, $p$ = 0.00) indicates no evidence ($p$ < 0.05) to reject the null hypothesis that the model is overdispersed")
+
+
+#new model
+# new model no overdispersion
+m2 <- glmer(n ~ ln.biovolume*Date +(1|row_id),family=poisson,data=prey_ab_vol)
+my <- m2
+#m2: n ~ ln.biovolume * Date + (1 | row_id)
+summary_tablea <- data.frame(
+  `Fixed effects` = c(
+    "(Intercept)", "ln.biovolume", "DateJun20", "DateJun21", "DateNov20", "ln.biovolume:DateJun20",
+    "ln.biovolume:DateJun21", "ln.biovolume:DateNov20"
+  ),
+  Estimate = c(3.1512, -0.5586, 0.7878, 0.9128, -0.4735, 0.1806, -0.2845, 0.2049),
+  `Std. Error` = c(0.2868, 0.2564, 0.6705, 0.5771, 0.3547, 0.3570, 0.5233, 0.3746),
+  `z value` = c(10.988, -2.178, 1.175, 1.582, -1.335, 0.506, -0.544, 0.547),
+  `Pr(>|z|)` = c("<2e-16 ***", "0.0294 *", "0.2400", "0.1137", "0.1819", "0.61302", "0.5867", "0.5843")
+)
+kable(summary_tablea, align = "c", caption = "Summary of Model 2:GLM with the predictor variables log-biomass and date with an interaction term between them and a random grouping intercept")
+
+
+m2 <- glmer(n ~ ln.biovolume*Date +(1|row_id),family=poisson,data=prey_ab_vol)
+# overdispersion
+table7 <-(overdisp_fun(m2))
+
+kable(table7, align = "c", caption = "Overdispersion of Generalised linear Model 2: with an interaction term between the predictor variables date and log-biomass on the response variable abundance. This model also includes a random grouping interept. Overdispersion analysis of this model (X² = 10.76, rdf = 62, $p$ = 1.00) indicates there is evidence ($p$ < 0.05) to reject the null hypothesis that the model is overdispersed")
+
+
+#chisq
+table6.1 <-(drop1(m2,test='Chisq'))
+kable(table6.1, align = "c", caption = "Homogeneity of slopes test for Model 2: Test on the interaction between preditor variables log-biomass and date on the response variable abundance.The likelihood ratio test (LRT) statistic was X² = 1.091 $p$= 0.78, df=3. There was no evidence ($p$ <0.05) in this test to reject the null hypothesis, that the slopes of the regression lines for the log-transformed biomass and date are equal. In other words,there is no evidence there is an effect of the interaction between date and biomass in the model")
+
+
+# no need for interaction term, new modellll
+
+m3 <- glmer(`Abundance (n)` ~ ln.biovolume + Date +(1|row_id),family=poisson,data=prey_ab_vol)
+
+
+fixed_effects <- data.frame(
+  "Variable" = c("(Intercept)", "ln.biovolume", "DateJun20", "DateJun21", "DateNov20"),
+  "Estimate" = c(3.0714, -0.4722, 1.0911, 0.5996, -0.4443),
+  "Std. Error" = c(0.2128, 0.1428, 0.2997, 0.2171, 0.3093),
+  "z value" = c(14.435, -3.307, 3.640, 2.762, -1.436),
+  "Pr(>|z|)" = c("< 2e-16 ***", "0.000943 ***", "0.000272 ***", "0.005744 **", "0.150949")
+)
+
+kable(fixed_effects, align = "c", caption = "Summary of best-fitted model (M3): General linear mixed effects model (GLMM) with the predictor variables date and log-biomass on abundance. This model includes a random grouping intercept")
+
+#chisq
+table6.2 <-(drop1(m3,test='Chisq'))
+kable(table6.2, align = "c", caption = "Homogeneity of slopes test on M3")
+
+
+
+library(knitr)
+linear_hypotheses <- data.frame(
+  Hypothesis = c("Jun20 - Apr21 == 0", "Jun21 - Apr21 == 0", "Nov20 - Apr21 == 0", 
+                 "Jun21 - Jun20 == 0", "Nov20 - Jun20 == 0", "Nov20 - Jun21 == 0"),
+  Estimate = c(1.0911, 0.5996, -0.4443, -0.4915, -1.5354, -1.0438),
+  `Std. Error` = c(0.2997, 0.2171, 0.3093, 0.2685, 0.4569, 0.3071),
+  `z value` = c(3.640, 2.762, -1.436, -1.831, -3.360, -3.399),
+  `Pr(>|z|)` = c("0.00146 **", "0.02585 *", "0.44277", "0.23402", "0.00400 **", "0.00349 **")
+)
+
+kable(linear_hypotheses,caption = "Tukey posthoc test on best-fitted model (M3)")
+
+library(knitr)
+
+data <- data.frame(
+  Variable = c("Jun20 - Apr21", "Jun21 - Apr21", "Nov20 - Apr21", "Jun21 - Jun20", "Nov20 - Jun20", "Nov20 - Jun21"),
+  Estimate = c(1.09108, 0.59956, -0.44427, -0.49153, -1.53535, -1.04382),
+  lwr = c(0.33509, 0.05204, -1.22451, -1.16881, -2.68788, -1.81853),
+  upr = c(1.847083, 1.14707, 0.33598, 0.18576, -0.38282, -0.26912)
+)
+
+kable(data,caption= "Tukey posthoc test confidence intervals")
+
+
+pred <- predict(m3,type='response',re.form=NA)
+ggplot(prey_ab_vol,aes(x=ln.biovolume,y=log(`Abundance (n)`),color=Date)) + geom_point() +
+  geom_line(aes(y=log(pred))) +
+    xlab("Log(Biomass)") +
+  ylab("Log(Abundance)")
+```
+<div align = "center"><font size= 1.5>*Figure 10: Plot of relationship between abundance of H.perlevis per quadrant (n) and the dates*</div></font>
+
+
+
+
+<div align="center"><font size= 5>**3.4	The effect of the date on the biomass of H. perlevis**</div></font>
+
+
+The Mean volume (± SD) of H.perlevis over the months in the study done by (López-Acosta et al., 2023) was 120.08 ± 141.53 mL (refer to table 18 a and 19) The highest sponge biomass was recorded in June 2020 (269.65 ± 164.28 mL). The lowest sponge biomass was recorded in November 2020 (14.6 ± 10.97 mL) (refer to table 21). ANOVA results indicated a significant effect (p value <0.05) of the date of biomass of the sponges ($F_{67,3})$= 51.381, $p$= <0.001) (refer to table 31). Post Hoc comparisons (95% confidence level) (refer to table 31) revealed that the difference between all dates was significant: Apr21-Nov20 (p.adj= 0.00032), Jun21-Nov20 (p.adj= 0.00), Jun20-Nov20 (p.adj= 0.00), Jun21-Apr21 (p.adj= 0.044), Jun20-Apr21 (p.adj= 0.00), Jun20-Jun21 (p.adj= 0.0000057). 
+
+
+```{r, echo=FALSE}
+#H4
+prey_ab_vol <- read.csv('Dataa/prey_ab_vol.csv')
+prey_ab_vol$n <- prey_ab_vol$N.H..perlevis
+prey_ab_vol$row_id <- factor(1:nrow(prey_ab_vol))
+prey_ab_vol$Date <- factor(prey_ab_vol$Date)
+prey_ab_vol <- prey_ab_vol[, colSums(is.na(prey_ab_vol)) == 0]
+
+#cleaning up names 
+# Rename specific columns by name
+old_names <- c("N.quadrat", "N.H..perlevis","Volumen.Hym..mL."," Date","row_id")  # Example: column names to be renamed
+new_names <- c("Quadrant number ", "Abundance (n)","Volume (mL)","Date","row_id")  # Example: new names for the columns
+
+for (i in 1:length(old_names)) {
+  colnames(prey_ab_vol)[colnames(prey_ab_vol) == old_names[i]] <- new_names[i]
+}
+prey_ab_vol$log.v <-log(prey_ab_vol$`Volume (mL)`)
+
+anova_results9 <- data.frame(
+  "-"= c("Date", "Residuals"),
+  "Df" = c("3", "67"),
+  "Sum Sq" = c(82.274, 35.762),
+  "Mean Sq" = c(27.4246, 0.5338),
+  "F value" = c(51.381, NA),
+  "Pr(>F)" = c("< 2.2e-16 ***", NA)
+)
+kable(anova_results9,caption= "ANOVA on LM: with predictor date and response variable log-biomass per quadrant")
+
+
+# tukey results
+Cowsandcat<- data.frame(
+  "diff" = c("Apr21-Nov20", "Jun21-Nov20", "Jun20-Nov20", "Jun21-Apr21", "Jun20-Apr21", "Jun20-Jun21"),
+  "lwr" = c(0.46159661, 1.17472826, 2.38303878, 0.01230726, 1.22088054, 0.61514235),
+  "upr" = c(1.920389, 2.533323, 3.729776, 1.313758, 2.509948, 1.789621),
+  "p adj" = c(0.0003224, 0.0000000, 0.0000000, 0.0442034, 0.0000000, 0.0000057)
+)
+
+kable(Cowsandcat, caption= "Posthoc tukey test on ANOVA")
+
+library(ggplot2)
+```
+
+
+<div align="center"><font size= 5>**3.5	The effect of pH, temperature and salinity on the biomass of H.perlevis**</div></font>
+
+The correlation coefficient (refer to table 36) between volume and temperature at a 95% CI was r= -0.28 (-0.98, 0.88), indicating a weak negative correlation, but this observation was not statistically significant (p= 0.7242, df=2). The correlation coefficient between volume and pH was r= -0.53 (-0.99,0.89), indicating a moderate negative correlation, but this observation was found to not be statistically significant (p= 0.4738, df=2). The correlation coefficient between volume and salinity was r= -0.085 (=0.97, 0.95), indicating a weak negative correlation, this observation was not statistically significant (p=0.91, df=2).
+
+  
+```{r, echo=FALSE}
+TpHSal <- read.csv('Dataa/TempsalinitypH.csv')
+empty_columns <- which(colSums(is.na(TpHSal)) == nrow(TpHSal))
+TpHSal <- subset(TpHSal, select = -empty_columns)
+
+
+# summary statistics 
+summaryTpHSal <- summary(TpHSal)
+kable(summaryTpHSal,caption="Summary of Temperature, pH and Salinity data from SOMLIT")
+
+
+
+library(dplyr)
+data <- data.frame(
+  ID_SITE = c(5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5),
+  DATE = as.Date(c("10/6/2020", "18/6/2020", "26/6/2020", "5/11/2020", "12/11/2020", "20/11/2020", "27/11/2020", "3/4/2021", "8/4/2021", "16/4/2021", "7/6/2021", "15/6/2021", "21/6/2021", "29/6/2021"), format = "%d/%m/%Y"),
+  T = c(15.416, 15.892, 16.824, 13.417, 13.241, 13.048, 12.848, 11.072, 11.23, 10.971, 15.061, 16.295, 15.688, 15.399),
+  S = c(34.733, 34.632, 34.704, 34.552, 34.424, 34.56, 34.31, 33.62, 33.8, 34.156, 34.626, 34.762, 34.865, 35.014),
+  PH = c(8.138, 7.959, 7.953, 7.799, 8.055, 7.791, 7.794, 7.9, 7.93, 7.91, 7.94, 7.91, 7.93, 7.88)
+)
+data$DATE <- as.POSIXlt(data$DATE)
+data$Month <- data$DATE$mon + 1
+data$Year <- data$DATE$year + 1900
+averagestemp_ph_S <- aggregate(cbind(T, S, PH) ~ Month + Year, data, FUN = mean)
+june_2020 <- subset(averagestemp_ph_S, Month == 6 & Year == 2020)
+june_2021 <- subset(averagestemp_ph_S, Month == 6 & Year == 2021)
+kable(averagestemp_ph_S,caption="Average Temperature, pH and Salinity data from SOMLIT over the months.")
+
+
+
+sd_temp <- aggregate(`T` ~ Month + Year, data, FUN = sd)
+sd_pH <- aggregate(PH ~ Month + Year, data, FUN = sd)
+sd_salinity <- aggregate(S ~ Month + Year, data, FUN = sd)
+temp_sd <- merge(sd_temp, sd_salinity, by = c("Month", "Year"))
+temp_sd <- merge(temp_sd, sd_pH, by = c("Month", "Year"))
+kable(temp_sd, caption = "SD for the averaged termperature,pH and Salinity data")
+
+
+
+
+
+```
+
+```{r, echo = FALSE, eval = FALSE}
+averages2 <- aggregate(`Volume (mL)`/ `Abundance (n)` ~ Date, prey_ab_vol, FUN = mean)
+print(averages2)
+```
+
+```{r, echo=FALSE}
+
+#average volume per individual 
+
+averagesvolume <- data.frame(
+  "Month" = c(6, 11, 4, 6),
+  "Year" = c(2020, 2020, 2021, 2021),
+  "Volume" = c(3.8781924, 12.6688840, 3.0448443, 0.8122513)
+)
+
+kable(averagesvolume,caption= "Average sponge biomass (mL) per month and year")
+
+merged_dataset <- merge(averagesvolume, averagestemp_ph_S, by = c('Year', 'Month'))
+
+
+```
+
+```{r, echo = FALSE, eval = FALSE}
+correlation_tests <- list()
+
+correlation_tests$Volume_T <- cor.test(merged_dataset$Volume, merged_dataset$T)
+correlation_tests$Volume_S <- cor.test(merged_dataset$Volume, merged_dataset$S)
+correlation_tests$Volume_PH <- cor.test(merged_dataset$Volume, merged_dataset$PH)
+
+print(correlation_tests)
+```
+
+```{r, echo=FALSE}
+correlation_table <- data.frame(
+  "Metric" = c("pH", "Salinity", "Temperature"),
+  "95 CI low" = c(-0.9877566, -0.9670712, -0.9777259),
+  "95 CI high" = c(0.8798354, 0.9540408, 0.9324436),
+  "Correlation" = c(-0.5262361, -0.08480915, -0.2758412),
+  "p.value" = c(0.4738, 0.9152, 0.7242),
+  "DF" = c(2, 2, 2)
+)
+
+kable(correlation_table, caption = "Pearsons product-moment correlation of abiotic factors on biomass")
+
+```
+
+<div align="center"><font size= 5>**4.1 Discussion**</div></font>
+
+<div align="center"><font size= 5>**4.1.1 Habitat study on siliceous sponges**</div></font>
+
+
+At the habitat level, there was a significant between-habitat difference in both sponge abundance and biomass (refer to both gg plots). There was a significant difference in abundance between the MB and four other habitats in the Bay of Brest. The MB had the highest average abundance of siliceous sponges in the six habitats. Similarly, a significant difference in biomass was observed between the habitats, predominately between CS and MB with the other habitats. The CS sponge's mean biomass was significantly different from all other habitats besides MB. These results indicate that siliceous sponges may favour and reproduce better in habitats such as the Mearl beds, and sponges in RS may be larger compared to other habitats such as CS.
+
+<div align="center"><font size= 5>**4.1.2	The effect of the date on the abundance**</div></font>
+
+Statistical analysis revealed that the abundance of H.Perlevis (n) per quadrant differed significantly throughout the annual cycle. The highest abundance recorded was recorded in before predation and the lowest corresponds to the period after predation periods.
+
+There was no significant difference between the dates June 2020 and June 2021, accounting for the sponge population before predation and after a year recovery. There is a significant difference in abundance between the before predation and during the recovery periods of June 2020 and April 2021. There is a significant difference between the after-predation and recovery periods in November 2020 and April 2021, June 2021. There was a significant difference between abundance in the before-predation and after-predation months (November2020-June2020). There was also a significant difference between the during-recovery and long-term recovery periods from June 2021-April 2021.
+ 
+These results are consistent with the proposed hypothesis of this paper, regarding D.verrucosa predation. The only result not expected was the non-significant abundance observation between November 2020 (after predation) and April 2021 (5 months after the predation event). It was hypothesised that after five months the population would have recovered to a significant altitude. 
+
+
+<div align="center"><font size= 5>**4.1.3 The effect of date on biomass**</div></font>
+
+
+There was a significant difference between the volume of sponges over the annual period. The highest sponge biomass was recorded in June 2020 and the lowest sponge biomass was recorded in November 2020 corresponding to before-predation and after-predation periods. There was a difference in the biomass of sponges over the annual period, corresponding to periods before predation, after predation and during the recovery stages. June 2020 was higher than June 2021 indicating that the biomass of sponges, may not recover fully a year after predation.
+
+
+<div align="center"><font size= 5>**4.1.4 The correlation between pH, salinity, temp and biomass**</div></font>
+
+The relationship between the average pH, salinity and temperature values and the average volume per sponge per month was found to be not statistically significant based on the data analysed. This study found that these abiotic factors do not appear to be associated with changes in biomass. 
+
+<div align="center"><font size= 5>**4.1.5 Limitations of this study**</div></font>
+
+Several limitations should be acknowledged in the interpretation of this report’s findings. Firstly, the sample size for the 2023 study was small, potentially limiting the statistical power to detect relationships proposed in this report. Secondly, the data collection period was restricted to only four months for the 2023 study, potentially overlooking seasonal variations that could influence the relationship between the studied factors. The authors did not list the time frame they conducted the 2022 study over. A study done by (2) found that the sponge species H.perlevis shows seasonal acclimation to changing environmental conditions in their morphological characteristics. Moreover, the quadrants sampled in both studies were randomly assigned, introducing the possibility of spatial variability in environmental conditions that may confound the relationship between all factors studied. Abiotic factors such as nutrient levels light availability,sediment composition and water quality were not considered in this study. These factors could have confounding effects on the volume and abundance of H.perlevis individuals. Literature has found that siliceous sponges rely on the dissolved silicon in the water to rebuild their skeletons. Therefore, silicon availability in the water may also be a confounding factor to investigate when assessing the relationship between biomass and the habitats and dates (5).
+ 
+There may also be complex and synergistic effects between pH, salinity, and temperature, thus analysing each variable and their effect on volume may not be sufficient. The interaction between all three variables and their combined effect on volume should be considered in future studies. A study done (5) found that warming water temperatures may react with changes in salinity to synergistically influence oysters and other marine organisms’ physiology. Finally, temperature, pH and salinity data were from surface water monitoring, which may not be representative of water conditions in the Maerl beds.
+
+
+
+<div align="center"><font size= 5>**References**</div></font>
+
+1.	López‐Acosta, M. et al. Sponge contribution to the silicon cycle of a diatom‐rich shallow bay. Limnology and Oceanography 67, 2431-2447 (2022). 
+
+2.	Broadribb, M., Bell, J. J. & Rovellini, A. Rapid acclimation in sponges: seasonal variation in the organic content of two intertidal sponge species. Journal of the Marine Biological Association of the United Kingdom 101, 983-989 (2021). 
+
+3.	Osinga, R., Tramper, J. & Wijffels, R. H. Cultivation of marine sponges. Marine Biotechnology 1, 509-532 (1999).
+
+4. 	López-Acosta, M., Potel, C., Gallinari, M., Pérez, F. F. & Leynaert, A. Nudibranch predation boosts sponge silicon cycling. Scientific    Reports 13, 1178 (2023). 
+
+5.	Jones, H. R., Johnson, K. M. & Kelly, M. W. Synergistic effects of temperature and salinity on the gene expression and physiology of Crassostrea virginica. Integrative and Comparative Biology 59, 306-319 (2019). 
+
+6. R Core Team (2023). R: A language and environment for statistical computing. R Foundation for Statistical Computing, Vienna, Austria. URL https://www.R-project.org/.
+
+
+
+
+
+

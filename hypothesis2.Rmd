@@ -1,0 +1,93 @@
+---
+title: "Hypothesis 2"
+output:
+  pdf_document: default
+  html_document: default
+date: "2023-06-17"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(repos = "https://cloud.r-project.org")
+library(car)
+library(lme4)
+library(multcomp)
+library(ggplot2)
+install.packages("knitr")
+install.packages("kableExtra")
+
+
+library(knitr)
+library(kableExtra)
+
+```
+
+Hypothesis 2: Does the month have a effect on the volume of H.perlevis?
+  
+  
+```{r, echo=FALSE}
+prey_ab_vol <- read.csv('Dataa/prey_ab_vol.csv')
+prey_ab_vol$n <- prey_ab_vol$N.H..perlevis
+prey_ab_vol$row_id <- factor(1:nrow(prey_ab_vol))
+prey_ab_vol$Date <- factor(prey_ab_vol$Date)
+prey_ab_vol <- prey_ab_vol[, colSums(is.na(prey_ab_vol)) == 0]
+
+#cleaning up names 
+# Rename specific columns by name
+old_names <- c("N.quadrat", "N.H..perlevis","Volumen.Hym..mL."," Date","row_id")  # Example: column names to be renamed
+new_names <- c("Quadrant number ", "Abundance (n)","Volume (mL)","Date","row_id")  # Example: new names for the columns
+
+for (i in 1:length(old_names)) {
+  colnames(prey_ab_vol)[colnames(prey_ab_vol) == old_names[i]] <- new_names[i]
+}
+prey_ab_vol$log.v <-log(prey_ab_vol$`Volume (mL)`)
+
+
+#anova for whole volume
+m7a <- aov(log.v~Date,data=prey_ab_vol)
+
+```
+anova(m7a)
+
+```{r echo=FALSE}
+# Create the data frame
+anova_results9 <- data.frame(
+  "-"= c("Date", "Residuals"),
+  "Df" = c("3", "67"),
+  "Sum Sq" = c(82.274, 35.762),
+  "Mean Sq" = c(27.4246, 0.5338),
+  "F value" = c(51.381, NA),
+  "Pr(>F)" = c("< 2.2e-16 ***", NA)
+)
+kable(anova_results9,caption= "ANOVA on total volume, predictor date`")
+
+
+# tukey results
+Cowsandcat<- data.frame(
+  "diff" = c("Apr21-Nov20", "Jun21-Nov20", "Jun20-Nov20", "Jun21-Apr21", "Jun20-Apr21", "Jun20-Jun21"),
+  "lwr" = c(0.46159661, 1.17472826, 2.38303878, 0.01230726, 1.22088054, 0.61514235),
+  "upr" = c(1.920389, 2.533323, 3.729776, 1.313758, 2.509948, 1.789621),
+  "p adj" = c(0.0003224, 0.0000000, 0.0000000, 0.0442034, 0.0000000, 0.0000057)
+)
+
+kable(Cowsandcat, caption= "Tukey on anova")
+
+
+library(ggplot2)
+ ggplot(prey_ab_vol, aes(x = Date, y = sqrt(`Abundance (n)`))) +
+  geom_boxplot(fill = "thistle", color = "black") +
+  labs(title = "Relationship between total volume of H.perlevis (mL) and Date ") +
+  xlab("Date") +
+  ylab("sqrt(abundance)")
+
+
+residualsm7a <- residuals(m7a)
+qqnormm7a <- qqnorm(residualsm7a)
+qqnormm7a <- qqline(residualsm7a)
+
+library(car)
+
+levene_results1 <- leveneTest(m7a)
+kable(levene_results1,caption= "levenes test")
+
+```

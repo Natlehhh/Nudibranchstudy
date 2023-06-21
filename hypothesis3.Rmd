@@ -1,0 +1,124 @@
+---
+title: "Hypothesis 3"
+output:
+  pdf_document: default
+  html_document: default
+date: "2023-06-17"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(repos = "https://cloud.r-project.org")
+library(car)
+library(lme4)
+library(multcomp)
+library(ggplot2)
+install.packages("knitr")
+install.packages("kableExtra")
+
+
+library(knitr)
+library(kableExtra)
+```
+
+```{r echo=FALSE}
+prey_ab_vol <- read.csv('Dataa/prey_ab_vol.csv')
+prey_ab_vol$n <- prey_ab_vol$N.H..perlevis
+prey_ab_vol$row_id <- factor(1:nrow(prey_ab_vol))
+prey_ab_vol$Date <- factor(prey_ab_vol$Date)
+prey_ab_vol <- prey_ab_vol[, colSums(is.na(prey_ab_vol)) == 0]
+
+#cleaning up names 
+# Rename specific columns by name
+old_names <- c("N.quadrat", "N.H..perlevis","Volumen.Hym..mL."," Date","row_id")  # Example: column names to be renamed
+new_names <- c("Quadrant number ", "Abundance (n)","Volume (mL)","Date","row_id")  # Example: new names for the columns
+
+for (i in 1:length(old_names)) {
+  colnames(prey_ab_vol)[colnames(prey_ab_vol) == old_names[i]] <- new_names[i]
+}
+prey_ab_vol$log.v <-log(prey_ab_vol$`Volume (mL)`)
+```
+Hypothesis 3: Is there a relationship between average volume of H.perlevis per month and pH, salinity and temperature averages for the months**</div></font>
+  
+```{r, echo=FALSE}
+TpHSal <- read.csv('Dataa/TempsalinitypH.csv')
+empty_columns <- which(colSums(is.na(TpHSal)) == nrow(TpHSal))
+TpHSal <- subset(TpHSal, select = -empty_columns)
+
+
+# summary statistics 
+summaryTpHSal <- summary(TpHSal)
+kable(summaryTpHSal,caption="summary of data")
+
+
+
+library(dplyr)
+data <- data.frame(
+  ID_SITE = c(5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5),
+  DATE = as.Date(c("10/6/2020", "18/6/2020", "26/6/2020", "5/11/2020", "12/11/2020", "20/11/2020", "27/11/2020", "3/4/2021", "8/4/2021", "16/4/2021", "7/6/2021", "15/6/2021", "21/6/2021", "29/6/2021"), format = "%d/%m/%Y"),
+  T = c(15.416, 15.892, 16.824, 13.417, 13.241, 13.048, 12.848, 11.072, 11.23, 10.971, 15.061, 16.295, 15.688, 15.399),
+  S = c(34.733, 34.632, 34.704, 34.552, 34.424, 34.56, 34.31, 33.62, 33.8, 34.156, 34.626, 34.762, 34.865, 35.014),
+  PH = c(8.138, 7.959, 7.953, 7.799, 8.055, 7.791, 7.794, 7.9, 7.93, 7.91, 7.94, 7.91, 7.93, 7.88)
+)
+data$DATE <- as.POSIXlt(data$DATE)
+data$Month <- data$DATE$mon + 1
+data$Year <- data$DATE$year + 1900
+averagestemp_ph_S <- aggregate(cbind(T, S, PH) ~ Month + Year, data, FUN = mean)
+june_2020 <- subset(averagestemp_ph_S, Month == 6 & Year == 2020)
+june_2021 <- subset(averagestemp_ph_S, Month == 6 & Year == 2021)
+kable(averagestemp_ph_S,caption="average temp, pH and salinity")
+
+
+
+sd_temp <- aggregate(`T` ~ Month + Year, data, FUN = sd)
+sd_pH <- aggregate(PH ~ Month + Year, data, FUN = sd)
+sd_salinity <- aggregate(S ~ Month + Year, data, FUN = sd)
+temp_sd <- merge(sd_temp, sd_salinity, by = c("Month", "Year"))
+temp_sd <- merge(temp_sd, sd_pH, by = c("Month", "Year"))
+kable(temp_sd, caption = "SD for each month")
+
+
+
+
+
+```
+averages2 <- aggregate(`Volume (mL)`/ `Abundance (n)` ~ Date, prey_ab_vol, FUN = mean)
+print(averages2)
+
+```{r, echo=FALSE}
+
+#average volume per individual 
+
+averagesvolume <- data.frame(
+  "Month" = c(6, 11, 4, 6),
+  "Year" = c(2020, 2020, 2021, 2021),
+  "Volume" = c(3.8781924, 12.6688840, 3.0448443, 0.8122513)
+)
+
+kable(averagesvolume,caption= "average volume per sponge (mL)")
+
+merged_dataset <- merge(averagesvolume, averagestemp_ph_S, by = c('Year', 'Month'))
+
+
+````
+correlation_tests <- list()
+
+correlation_tests$Volume_T <- cor.test(merged_dataset$Volume, merged_dataset$T)
+correlation_tests$Volume_S <- cor.test(merged_dataset$Volume, merged_dataset$S)
+correlation_tests$Volume_PH <- cor.test(merged_dataset$Volume, merged_dataset$PH)
+
+print(correlation_tests)
+
+```{r, echo=FALSE}
+correlation_table <- data.frame(
+  "Metric" = c("pH", "Salinity", "Temperature"),
+  "95 CI low" = c(-0.9877566, -0.9670712, -0.9777259),
+  "95 CI high" = c(0.8798354, 0.9540408, 0.9324436),
+  "Correlation" = c(-0.5262361, -0.08480915, -0.2758412),
+  "p.value" = c(0.4738, 0.9152, 0.7242),
+  "DF" = c(2, 2, 2)
+)
+
+kable(correlation_table, caption = "Pearsons product-moment correlation, abiotic factors on volume")
+
+

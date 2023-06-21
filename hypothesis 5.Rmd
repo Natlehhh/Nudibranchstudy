@@ -1,0 +1,120 @@
+---
+title: "hypothesis 5"
+output:
+  pdf_document: default
+  html_document: default
+date: "2023-06-18"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE)
+options(repos = "https://cloud.r-project.org")
+
+library(car)
+library(lme4)
+library(multcomp)
+library(ggplot2)
+install.packages("knitr")
+install.packages("kableExtra")
+library(MASS)
+library(emmeans)
+
+
+library(knitr)
+library(kableExtra)
+```
+
+Hypothesis 5: What is the relationship between the biomass of H.perlevis and habitat (2022 study)**</div></font>
+  
+
+```{r, echo=FALSE}
+overdisp_fun <- function(model) {
+    rdf <- df.residual(model)
+    rp <- residuals(model,type="pearson")
+    Pearson.chisq <- sum(rp^2)
+    prat <- Pearson.chisq/rdf
+    pval <- pchisq(Pearson.chisq, df=rdf, lower.tail=FALSE)
+    c(chisq=Pearson.chisq,ratio=prat,rdf=rdf,p=pval)
+}
+
+```
+
+```{r, echo=FALSE}
+library(ggplot2)
+data2022 <- read.csv('Dataa/data2022.csv')
+data2022$row_id <- factor(1:nrow(data2022))
+data2022 <- data2022[data2022$Abundance.sponges > 0, ]
+data2022$Sponge.biomass <- as.numeric(gsub("[^0-9.]", "", data2022$Sponge.biomass))
+
+# cleaning up
+data2022$ln.biovolume <- log(data2022$Sponge.biomass/data2022$Abundance.sponges)
+data2022$log.n <- log(data2022$Abundance.sponges)
+data2022$row_id <- factor(1:nrow(data2022))
+
+```
+
+```{r, echo=FALSE}
+m10b <- aov(ln.biovolume ~ Habitat, data = data2022)
+boop <-summary(m10b) 
+
+# Create a data frame with the information
+boop <- data.frame(
+  Source = c("Habitat", "Residuals"),
+  Df = c(5, 136),
+  Sum_Sq = c(184.1, 245.4),
+  Mean_Sq = c(36.82, 1.80),
+  F_value = c(20.4, NA),
+  Pr_F = c("3.71e-15 ***", NA)
+)
+
+kable(boop,caption="anova on volume per inidividual and habitat")
+
+
+# Create the table
+boo <- data.frame(
+  Comparison = c("Heterog seds-Circ.coarse seds", "Maerl-Circ.coarse seds", "Rocky intertidal-Circ.coarse seds", 
+                 "Rocky subtidal-Circ.coarse seds", "Shallow muds-Circ.coarse seds", "Maerl-Heterog seds",
+                 "Rocky intertidal-Heterog seds", "Rocky subtidal-Heterog seds", "Shallow muds-Heterog seds",
+                 "Rocky intertidal-Maerl", "Rocky subtidal-Maerl", "Shallow muds-Maerl",
+                 "Rocky subtidal-Rocky intertidal", "Shallow muds-Rocky intertidal", "Shallow muds-Rocky subtidal"
+  ),
+  diff = c(1.5005453, 0.6380823, 1.4872614, 2.1890594, 2.5456745, -0.8624630, -0.0132839, 0.6885141,
+           1.0451292, 0.8491791, 1.5509771, 1.9075922, 0.7017980, 1.0584131, 0.3566151
+  ),
+  lwr = c(0.38960855, -0.36990890, 0.36570415, 1.13500047, 0.72730831, -1.79655984, -1.06892651, -0.29511738,
+          -0.73333819, -0.09752418, 0.68530011, 0.19154674, -0.29381295, -0.72670778, -1.38688881
+  ),
+  upr = c(2.61148206, 1.64607350, 2.60881870, 3.24311829, 4.36404069, 0.07163383, 1.04235875, 1.67214553,
+          2.82359658, 1.79588242, 2.41665404, 3.62363766, 1.69740886, 2.84353394, 2.10011905
+  ),
+  p_adj = c(0.0020172, 0.4501734, 0.0026023, 0.0000002, 0.0011977, 0.0883057, 1.0000000, 0.3345847,
+            0.5349857, 0.1060177, 0.0000115, 0.0199472, 0.3267299, 0.5250267, 0.9914730
+  )
+)
+
+kable(boo,caption="tukey hsd results")
+
+
+#plot
+dog <- lm(ln.biovolume~log.n + Habitat,data2022)
+pred <- predict(dog)
+ggplot(data2022,aes(x=log.n,y=ln.biovolume,color=Habitat)) + geom_point() +
+  geom_line(aes(y=pred)) +
+  xlab("Log(abundance)") +
+  ylab("Log(biomass)")
+
+#assumptions
+
+residualsm3 <- residuals(m10b)
+qqnormm3 <- qqnorm(residualsm3)
+qqnormm3 <- qqline(residualsm3)
+
+library(car)
+booop<-leveneTest(m10b)
+kable(booop,caption="levenes test")
+
+```
+
+
+
